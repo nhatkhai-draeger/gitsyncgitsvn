@@ -1,0 +1,143 @@
+#!/bin/bash 
+#!/bin/bash -x
+PS4='Line ${LINENO}: ' #For debugging
+
+showHelp () 
+{
+  echo "`basename "$0"` [options]"
+  echo
+  echo "This script help sync change between SVN and Git repositories"
+  echo
+  echo "Options:"
+  echo
+  echo 
+} # end of showHelp
+
+main () 
+{
+myDir="`dirname "$0"`"
+curDir="`pwd`"
+
+setDefaultSettings
+
+# Go through all arguments
+while (( "$#" )); do
+  if [ "$1" == "-h" ]; then showHelp; myExit 0; fi
+  if [ "$1" == "--init" ]; then
+    fetchNewSvnFolder "$2"
+    shift
+  fi
+
+  shift
+done
+
+checkSettings
+
+# Capture project specific LFS setting
+git show $gitBranch:.gitattributes > "$tmp/.gitattributes" 
+
+# Figure out svn branch, and folder name
+svnBranch=`git config --get svn-remote.svn.fetch`
+if [ "$svnBranch" == "" ]; then
+  >&2 echo "There is not SVN setting found!"
+  >&2 echo "Please use --init SVN_FOLDER"
+  myExit 1
+fi
+svnBranch="${svnBranch##*/}"
+svnFolder="${svnBranch##*svn-}"
+echo $svnBranch
+echo $svnFolder
+
+cleanUp
+} # End of main
+
+setDefaultSettings()
+{
+  tmp="/tmp/`basename $0`"
+  
+  authorFile="../authors-transform.txt"
+
+  gitURL="ssh://git@stash.xyz.com:7999"
+  gitBranch="master"
+  repoDir="$curDir"
+
+  svnURL="http://xyz:8080/svn/projects"
+  svnUser="xyz"
+  svnPwd="xyz!"
+} # End of setDefaultSettings
+
+checkSettings()
+{
+  mkdir -p "$tmp"
+
+  authorFile="`realpath "$authorFile"`"
+
+  # Check of setting correctness
+  if [ ! -f "$authorFile" ]; then
+    >&2 echo "`relPath "$authorFile"` is not found!"
+    >&2 echo "** Going to extract from SVN log."
+    getSvnCommiters
+    myExit 1
+  fi
+
+  cd "$repoDir"
+  git log -0 &> /dev/null
+  if [[ $? != 0 ]]; then 
+    >&2 echo "Please switch to git directory."
+    myExit 1; 
+  fi
+}
+
+cleanUp()
+{
+  rm -rf "$tmp"
+  cd "$curDir"
+}
+
+fetchNewSvnFolder()
+{
+  local svnFolder="${1/\//-}"
+  local svnBranch="svn-$svnFolder"
+
+  echo "** Create a svn remote under $svnBranch branch"
+  git config svn-remote.svn.url   "$svnURL/$1"
+  git config svn-remote.svn.fetch ":refs/remotes/$svnBranch"
+  rm -rf "$repoDir/.git/svn"
+
+  echo "** Fetch new svn branch"
+  git svn fetch -A "$authorFile"
+}
+
+getSvnCommiters()
+{
+  svn log -q "$svnURL" \
+    --username "$svnUser" \
+    --password "$svnPwd" > "$tmp/svn_log" 2> "$tmp/error"
+  if [[ $? != 0 ]]; then 
+    >&2 echo "Cannot query SVN log due to following error:"
+    >&2 cat "$tmp/error"
+    myExit $?; 
+  fi
+  cat "$tmp/svn_log" \
+    | awk -F '|' \
+             '/^r/ {sub("^ ", "", $2); sub(" $", "", $2);\
+              print $2" = "$2" <"$2">"}' \
+    | sort -u > "$authorFile"
+  if [[ $? != 0 ]]; then myExit $?; fi
+
+  echo "PLEASE Fix committer Email in `relPath "$authorFile"` using following form:"
+  echo "  svnCommiterID = gitCommiterID <email>"
+}
+
+relPath()
+{
+  echo `realpath --relative-to="$curDir" "$1"`
+}
+
+myExit()
+{
+  cleanUp
+  exit $1
+}
+
+main "$@"
