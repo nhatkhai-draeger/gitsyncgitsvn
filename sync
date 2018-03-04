@@ -4,13 +4,17 @@ PS4='Line ${LINENO}: ' #For debugging
 
 showHelp () 
 {
-  echo "`basename "$0"` [options]"
-  echo
-  echo "This script help sync change between SVN and Git repositories"
-  echo
-  echo "Options:"
-  echo
-  echo 
+  cat <<EOF
+`basename "$0"` [options]
+
+This script help sync change between SVN and Git repositories
+
+Options:
+
+  --init SVN_FOLDER_PATH
+      Setting up initial SVN branch for synchronize
+
+EOF
 } # end of showHelp
 
 main () 
@@ -22,8 +26,8 @@ setDefaultSettings
 
 # Go through all arguments
 while (( "$#" )); do
-  if [ "$1" == "-h" ]; then showHelp; myExit 0; fi
-  if [ "$1" == "--init" ]; then
+  if [[ $1 =~ ^-h|--help$ ]]; then showHelp; myExit 0; fi
+  if [[ $1 =~ ^--init$ ]]; then
     fetchNewSvnFolder "$2"
     shift
   fi
@@ -34,12 +38,16 @@ done
 checkSettings
 
 # Capture project specific LFS setting
-git show $gitBranch:.gitattributes > "$tmp/.gitattributes" 
+git show $gitBranch:.gitattributes > "$tmp/.gitattributes" 2> /dev/null
+if [ ! $? == 0 ]; then
+  >&2 echo "Cannot find .gitattributes from master branch!"
+  myExit 1
+fi
 
 # Figure out svn branch, and folder name
 svnBranch=`git config --get svn-remote.svn.fetch`
 if [ "$svnBranch" == "" ]; then
-  >&2 echo "There is not SVN setting found!"
+  >&2 echo "Cannot found SVN branch!"
   >&2 echo "Please use --init SVN_FOLDER"
   myExit 1
 fi
@@ -81,7 +89,7 @@ checkSettings()
   fi
 
   cd "$repoDir"
-  git log -0 &> /dev/null
+  git status &> /dev/null
   if [[ $? != 0 ]]; then 
     >&2 echo "Please switch to git directory."
     myExit 1; 
