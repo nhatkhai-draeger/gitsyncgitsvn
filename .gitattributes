@@ -1,0 +1,10 @@
+# Normal file will use linux style
+* text eol=lf
+
+# Windows file will use windows style 
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# These text file are system style
+*.txt text=auto
+*.log text=auto
