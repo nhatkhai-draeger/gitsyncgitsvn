@@ -1,0 +1,57 @@
+>svn log -q | awk -F '|' '/^r/ {sub("^ ", "", $2); sub(" $", "", $2); print $2" = "$2" <"$2">"}' | sort -u > authors-transform.txt
+Edit authors-transform.txt file xyz = xyz <xyz.xyz@xyz.com>
+
+>git init
+>git remote add origin ssh://git@stash.xyz.com:7999/att/cricket_test.git
+
+add (Oldest folder name)
+[svn-remote "svn"]
+	url = http://xyz:8080/svn/projects/GoldBox
+	fetch = :refs/remotes/git-svn-goldbox
+>git svn fetch -A ../authors-transform.txt
+>git checkout -b feature/svn-goldbox git-svn-goldbox
+>git push -u origin feature/svn-goldbox
+
+change (newer folder name)
+[svn-remote "svn"]
+	url = http://xyz:8080/svn/projects/Cricket
+  fetch = :refs/remotes/git-svn-cricket
+>git svn fetch -A ../authors-transform.txt
+>git checkout -b feature/svn-cricket git-svn-cricket
+>git push -u origin feature/svn-cricket
+
+* set up .gitattribute for LFS tracking
+
+982ab24 (svn/lfs/GoldBox) Initial entry to SVN/GoldBox/Prelim
+03d8b26 Initial Proposal supporting info
+bd4cdf9 Created "GoldBox" folder and initiated with proposal from April, 2013
+
+b1998ef (svn-GoldBox, refs/original/refs/heads/svn/lfs/GoldBox) Initial entry to SVN/GoldBox/Prelim
+bec52ae Initial Proposal supporting info
+1edbd84 Created "GoldBox" folder and initiated with proposal from April, 2013
+
+WHEN Fresh checkout:
+add:
+[svn-remote "svn"]
+	url = http://xyz:8080/svn/projects/Cricket
+  fetch = :refs/remotes/origin/feature/svn-cricket
+
+
+ 1 - Fetch from SVN (Cricket) - Capture the SHA1 range
+ 2 - Rebase onto svn/lfs/Cricket - Capture then SHA1 range
+ 3 - Apply filter-branch SHA1..svn/lfs/Cricket
+    git filter-branch --prune-empty -f --tree-filter '
+        #cp /tmp/1 .gitattributes
+        git ls-files | while read file; do git add "$file"; done
+        ' -- SHA1..svn/goldbox
+ * - Push svn/lfs/Cricket to Stash
+ 
+ * - Lock master
+ * - Fetch master from Stash
+ 4 - Rebase master onto svn/lfs/Cricket
+ * - Push master to Stash
+ * - UnLock master
+ * - Rebase master on svn/Cricket call try/master
+ * - Apply filter-branch to undo LFS
+ 6 - SVN Dcommit
+ * - ?Handle after Dcommit error or success

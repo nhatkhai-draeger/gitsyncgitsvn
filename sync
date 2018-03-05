@@ -71,7 +71,7 @@ setDefaultSettings()
   gitBranch="master"
   repoDir="$curDir"
 
-  svnURL="http://ZYX846:8080/svn/projects"
+  svnURL="http://ZYX:8080/svn/projects"
   svnUser="ZYX"
   svnPwd="ZYX"
 
