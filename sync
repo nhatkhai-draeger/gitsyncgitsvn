@@ -7,60 +7,62 @@ showHelp ()
   cat <<EOF
 `basename "$0"` [options]
 
-This script help sync change between SVN and Git repositories
+This script help sync change between SVN and Git repositories.
 
 Options:
 
   --init SVN_FOLDER_PATH
       Setting up initial SVN branch for synchronize
 
+  --svn SVN_URL
+      Setting SVN URL. (Default $svnURL)
+
+  --git GIT_URL
+      Setting origin remote git URL. (Default $gitURL)
+
+  --svnUser
+      Specify username for svn. (Default $svnUser)
+
+  --svnPwd
+      Specify svn passowrd.
 EOF
 } # end of showHelp
 
 main () 
 {
-myDir="`dirname "$0"`"
-curDir="`pwd`"
-
 setDefaultSettings
 
 # Go through all arguments
 while (( "$#" )); do
   if [[ $1 =~ ^-h|--help$ ]]; then showHelp; myExit 0; fi
-  if [[ $1 =~ ^--init$ ]]; then
-    fetchNewSvnFolder "$2"
-    shift
-  fi
-
+  if [[ $1 =~ ^--init$    ]]; then init=("$2"); shift; fi
+  if [[ $1 =~ ^--svn$     ]]; then svnURL="$2"; shift; fi
+  if [[ $1 =~ ^--git$     ]]; then gitURL="$2"; shift; fi
+  if [[ $1 =~ ^--svnUser$ ]]; then svnURL="$2"; shift; fi
+  if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2"; shift; fi
   shift
 done
 
 checkSettings
+init_fetchNewSvnFolder "${init[@]}"
 
-# Capture project specific LFS setting
-git show $gitBranch:.gitattributes > "$tmp/.gitattributes" 2> /dev/null
-if [ ! $? == 0 ]; then
-  >&2 echo "Cannot find .gitattributes from master branch!"
-  myExit 1
-fi
+get_svnInfo
+##TODO: REMOVE - below block only for testing and DEBUG
+#git branch -f "$lfsBranch" bd4cdf9
+#get_svnInfo
+#svnSHA1="1edbd8422db"
 
-# Figure out svn branch, and folder name
-svnBranch=`git config --get svn-remote.svn.fetch`
-if [ "$svnBranch" == "" ]; then
-  >&2 echo "Cannot found SVN branch!"
-  >&2 echo "Please use --init SVN_FOLDER"
-  myExit 1
-fi
-svnBranch="${svnBranch##*/}"
-svnFolder="${svnBranch##*svn-}"
-echo $svnBranch
-echo $svnFolder
+syncSVNtoGIT
+
+syncGITtoSVN
 
 cleanUp
 } # End of main
 
 setDefaultSettings()
 {
+  curDir="`pwd`"
+  myDir="`dirname "$0"`"
   tmp="/tmp/`basename $0`"
   
   authorFile="../authors-transform.txt"
@@ -69,51 +71,201 @@ setDefaultSettings()
   gitBranch="master"
   repoDir="$curDir"
 
-  svnURL="http://xyz:8080/svn/projects"
-  svnUser="xyz"
-  svnPwd="xyz!"
+  svnURL="http://ZYX846:8080/svn/projects"
+  svnUser="ZYX"
+  svnPwd="ZYX"
+
+  init=()
 } # End of setDefaultSettings
 
 checkSettings()
 {
   mkdir -p "$tmp"
+  exitIfErr 1 echo "Cannot create folder $tmp!"
 
   authorFile="`realpath "$authorFile"`"
 
   # Check of setting correctness
   if [ ! -f "$authorFile" ]; then
     >&2 echo "`relPath "$authorFile"` is not found!"
-    >&2 echo "** Going to extract from SVN log."
+    >&2 echo "****** Going to extract from SVN log."
     getSvnCommiters
     myExit 1
   fi
 
   cd "$repoDir"
-  git status &> /dev/null
-  if [[ $? != 0 ]]; then 
-    >&2 echo "Please switch to git directory."
-    myExit 1; 
+  local status=`git status -s` &> /dev/null
+  exitIfErr 1 echo "$repoDir is not a git folder.\n\
+    Please switch to git directory."
+
+  if [[ "$status" != "" ]]; then
+    >&2 echo "The working directory is dirty. Please do a git reset --hard"
+    >&2 echo "Following are files that need to be taking care:"
+    >&2 echo "$status"
+    myExit 1
   fi
+
+  filterLog="$tmp/filterLog.log"
 }
 
 cleanUp()
 {
-  rm -rf "$tmp"
-  cd "$curDir"
+  rm -rf "$tmp" 2> /dev/null
+  cd "$curDir" 2> /dev/null
 }
 
-fetchNewSvnFolder()
+init_fetchNewSvnFolder()
+# $1 specify SVN path from relative to SVN ROOT
 {
-  local svnFolder="${1/\//-}"
-  local svnBranch="svn-$svnFolder"
+  if [ $# == 0 ]; then return; fi
 
-  echo "** Create a svn remote under $svnBranch branch"
+  if [ "$1" == "" ]; then
+    >&2 echo "missing SVN_FOLDER_PATH from --init option!".
+    myExit 1
+  fi
+
+  svnFolder="${1/\//-}"
+  svnBranch="svn-$svnFolder"
+  lfsBranch="svn/lfs/$svnFolder"
+
+  get_gitattributes
+
+  local curBranch=`getCurBranch`
+  if [[ "$curBranch" == "$lfsBranch" ]] || \
+     [[ "$curBranch" == "svn/$svnFolder" ]]; then
+    git checkout -f "$gitBranch"
+    exitIfErr 1 echo "Cannot switch to $gitBranch branch"
+  fi
+
+  echo "****** Create a svn remote under $svnBranch branch"
   git config svn-remote.svn.url   "$svnURL/$1"
   git config svn-remote.svn.fetch ":refs/remotes/$svnBranch"
-  rm -rf "$repoDir/.git/svn"
+  exitIfErr 1 echo "Cannot configure remote SVN to $svnURL!"
+  rm -rf "$repoDir/.git/svn" 2> /dev/null
 
-  echo "** Fetch new svn branch"
-  git svn fetch -A "$authorFile"
+  git branch -D    "$lfsBranch"     2> /dev/null
+  git branch -D    "svn/$svnFolder" 2> /dev/null
+  git branch -D -r "$svnBranch"     2> /dev/null
+
+  echo "****** Fetch SVN into $svnBranch"
+  git checkout --orphan "svn/${svnFolder}"
+  exitIfErr 1 echo "Cannot checkout empty orphan branch of $svnBranch!"
+  git reset --hard 2> /dev/null
+  git svn fetch -A "$authorFile" 2> "$filterLog"
+  exitIfErr 1 \
+    echo "Cannot fetch commits from SVN ($svnURL)! due to;" ";" \
+    cat "$filterLog"
+
+  echo "****** Create new branch $lfsBranch"
+  git branch "$lfsBranch" "$svnBranch"
+  exitIfErr 1 echo "Cannot create $lfsBranch branch"
+
+  git checkout -f "svn/$svnFolder"
+  exitIfErr 1 echo "Cannot switch to svn/$svnFolder"
+  git reset --hard
+
+  echo "****** Rebase SVN commits with lfs settings"
+  git filter-branch --prune-empty -f --tree-filter " \
+    cp \"${tmp}/.gitattributes\" .gitattributes; \
+    git ls-files | while read f; do git add \"\$f\"; done; \
+  " -- "${lfsBranch}" 2> "$filterLog"
+  exitIfErr 1 \
+    echo "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
+    cat "$filterLog"
+
+  git update-ref -d "refs/original/refs/heads/$lfsBranch"
+
+  local backupBranch="backup/${gitBranch}_`date +%m%d%y_%H%M%S`"
+  echo "****** Backup and set $gitBranch branch to $lfsBranch"; 
+  git branch -f "$backupBranch" "$gitBranch"
+  exitIfErr 1 echo "Cannot backup $gitBranch"
+
+  git branch -f "$gitBranch" "$lfsBranch"
+  exitIfErr 1 echo "Cannot set $gitBranch to $lfsBranch"
+}
+
+syncSVNtoGIT()
+{
+  echo "****** Fetch new commits from SVN to $svnBranch"
+  git checkout -f "svn/$svnFolder"
+  exitIfErr 1 echo "Cannot switch to svn/$svnFolder"
+  git reset --hard
+  git svn fetch -A "$authorFile" 2> "$filterLog"
+  exitIfErr 1 \
+    echo "Cannot fetch commits from SVN! due to:" ";" \
+    cat "$filterLog"
+  svnNewSHA1=`getSHA1 "$svnBranch"`
+  DBG ${LINENO} "New SHA-1 for $svnBranch: $svnNewSHA1"
+
+  if [[ $svnSHA1 == $svnNewSHA1 ]]; then
+    echo "No new SVN commits to work on."
+    return
+  fi
+
+  # Rebase SVN changed into LFS (SVN changed = theirs)
+  echo "****** Put new SVN commit from ${svnSHA1:0:8} onto $lfsBranch"
+  git rebase -s recursive -X theirs --onto "$lfsBranch" $svnSHA1 $svnNewSHA1
+  if [ ! $? == 0 ]; then
+    git rebase --abort 2> /dev/null
+    >&2 echo "Cannot apply new SVN commit onto $lfsBranch!"
+    myExit 1
+  fi
+
+  git branch -f "$lfsBranch"
+  exitIfErr 1 echo "Cannot move $lfsBranch to new rebase tip!"
+  lfsNewSHA1=`getSHA1 "$lfsBranch"`
+  DBG ${LINENO} "New SHA-1 for $lfsBranch: $svnNewSHA1"
+
+  echo "****** Go back to svn/$svnFolder after rebase"
+  git checkout -f "svn/$svnFolder"
+  exitIfErr 1 echo "Cannot switch to svn/$svnFolder"
+  git reset --hard
+
+  echo "Apply LFS setting on new commits ${lfsSHA1:0:8}..$lfsBranch"
+  git filter-branch --prune-empty -f --tree-filter ' \
+    git ls-files | while read f; do git add "$f"; done; \
+  ' -- ${lfsSHA1}.."${lfsBranch}" 2> "$filterLog"
+  exitIfErr 1 \
+    echo "Cannot apply LFS setting on new SVN commits!" ";" \
+    cat "$filterLog"
+
+  lfsNewSHA1=`getSHA1 "$lfsBranch"`
+  DBG ${LINENO} "New SHA-1 for $lfsBranch: $lfsNewSHA1"
+}
+
+syncGITtoSVN()
+{
+  # git merge-base
+  /dev/null  
+}
+
+get_gitattributes()
+{
+  # Capture project specific LFS setting
+  git show "$gitBranch:.gitattributes" > "$tmp/.gitattributes" 2> /dev/null
+  exitIfErr 1 echo "Cannot find .gitattributes from $gitBranch branch!"
+}
+
+get_svnInfo()
+{
+  # Figure out svn branch, and folder name
+  svnBranch=`git config --get svn-remote.svn.fetch`
+  if [ "$svnBranch" == "" ]; then
+    >&2 echo "Cannot found SVN branch!"
+    >&2 echo "Please use --init SVN_FOLDER"
+    myExit 1
+  fi
+
+  svnBranch="${svnBranch##*/}"
+  svnFolder="${svnBranch##*svn-}"
+  lfsBranch="svn/lfs/$svnFolder"
+
+  lfsSHA1=`getSHA1 "$lfsBranch"`
+  svnSHA1=`getSHA1 "$svnBranch"`
+
+  DBG ${LINENO} "SVN folder label: $svnFolder"
+  DBG ${LINENO} "SVN branch      : $svnSHA1 - $svnBranch"
+  DBG ${LINENO} "LFS sync branch : $lfsSHA1 - $lfsBranch"
 }
 
 getSvnCommiters()
@@ -126,15 +278,32 @@ getSvnCommiters()
     >&2 cat "$tmp/error"
     myExit $?; 
   fi
+
   cat "$tmp/svn_log" \
     | awk -F '|' \
              '/^r/ {sub("^ ", "", $2); sub(" $", "", $2);\
               print $2" = "$2" <"$2">"}' \
     | sort -u > "$authorFile"
-  if [[ $? != 0 ]]; then myExit $?; fi
+  exitIfErr $? echo "Cannot process svn log!"
 
   echo "PLEASE Fix committer Email in `relPath "$authorFile"` using following form:"
   echo "  svnCommiterID = gitCommiterID <email>"
+}
+
+getSHA1()
+{
+  local sha1=`git log --pretty=oneline -1 "$1"` 2> /dev/null
+  exitIfErr 1 echo "Fail to obtain SHA-1 number for branch $1"
+  sha1="${sha1%% *}"
+  echo "$sha1"
+}
+
+getCurBranch()
+{
+  local branch_name=$(git symbolic-ref -q HEAD)
+  branch_name=${branch_name##refs/heads/}
+  branch_name=${branch_name:-HEAD}
+  echo $branch_name
 }
 
 relPath()
@@ -142,10 +311,30 @@ relPath()
   echo `realpath --relative-to="$curDir" "$1"`
 }
 
+# $1 - Error code
+# $2 - Error message
+exitIfErr()
+{
+  if [ ! $? == 0 ]; then
+    local error=$1
+    shift
+    if [[ $# != 0 ]]; then (>&2 eval "$@") fi
+    myExit $error
+  fi
+}
+
 myExit()
 {
   cleanUp
   exit $1
+}
+
+DBG()
+{
+  #local a=$1
+  #shift
+  #echo "DEBUG:${a:0:4} $@"
+  /dev/null
 }
 
 main "$@"
