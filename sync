@@ -135,6 +135,8 @@ checkSettings()
 
 cleanUp()
 {
+  #TODO: Unlock SVN folder
+  #TODO: Unlock gitBranch
   rm -rf "$tmp" 2> /dev/null
   cd "$curDir" 2> /dev/null
 }
@@ -217,6 +219,8 @@ syncSVNtoGIT()
   git checkout -f "$svnBranch"
   exitIfErr 1 echo "Cannot switch to $svnBranch"
   git reset --hard
+
+  #TODO: Lock SVN Folder
   git svn fetch -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 echo "Cannot fetch commits from SVN! due to:" ";" \
     cat "$filterLog"
@@ -271,6 +275,8 @@ syncGITtoSVN()
   local tryLfsMerge="try/lfs/merge"
   local tryMerge="try/merge"
 
+  #TODO: Lock $gitBranch
+
   git fetch $gitRemote "$gitBranch"
   exitIfErr 1 echo "Cannot fetch $gitBranch from $gitRemote"
   git branch -f "$gitBranch" $gitRemote/"$gitBranch"
@@ -278,7 +284,7 @@ syncGITtoSVN()
 
   local gitSHA=`getSHA1 "$gitBranch"`
   local lfsSHA=`getSHA1 "$lfsBranch"`
-  if [ $gitSHA=$lfsSHA ]; then 
+  if [ $gitSHA == $lfsSHA ]; then 
     echo "Nothing to be syn."
     return;
   fi
@@ -309,6 +315,8 @@ syncGITtoSVN()
   exitIfErr 1 echo "Cannot merge $lfsBranch to $gitBranch!" ";" \
     git merge --abort "2>" /dev/null
 
+  #TODO: Unlock $gitBranch if the merge result only fast forwarded
+
   git branch -f $tryMerge $tryLfsMerge
   exitIfErr 1 echo "Cannot create $tryMerge branch!"
 
@@ -331,6 +339,7 @@ syncGITtoSVN()
     echo ""
     # TODO: Is continue with reset --hard work?
   fi
+  #TODO: Unlock SVN Folder
   git reset --hard
 
   echo "****** Figure what were committed into SVN and update the states"
@@ -349,6 +358,17 @@ syncGITtoSVN()
     git push -f -u $gitRemote "$lfsBranch"
     exitIfErr 1 echo "Cannot push $lfsBranch to $gitRemote"
   fi
+
+  if [ $uncommitedCnt == 0 ]; then
+    local gitSHA=`getSHA1 "$gitBranch"`
+    local lfsSHA=`getSHA1 "$lfsBranch"`
+    if [ $gitSHA != $lfsSHA ]; then 
+      git branch -f "$gitBranch" "$lfsBranch"
+      git push -f -u $gitRemote "$gitBranch"
+      exitIfErr 1 echo "Cannot push $gitBranch into $gitRemote"
+    fi
+  fi
+  #TODO: Unlock $gitBranch
 
   echo "****** Remove temporary branches"
   git checkout -f "$svnBranch"
