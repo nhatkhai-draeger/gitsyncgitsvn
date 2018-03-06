@@ -87,7 +87,8 @@ setDefaultSettings()
   
   authorFile="../authors-transform.txt"
 
-  gitURL="ssh://git@stash.xyz.com:7999"
+  gitURL="ssh://git@stash.XYZ.com:7999"
+  gitRemote=origin
   gitBranch="master"
   repoDir="$curDir"
   mergeOpt="-s recursive -Xours -Xpatience \
@@ -97,7 +98,7 @@ setDefaultSettings()
   svnURL="http://ZYX846:8080/svn/projects"
   svnUser="ZYX"
   svnPwd="ZYX"
-  dcommitOpt="--rmdir"
+  dcommitOpt="-n --rmdir"
 
   init=()
 } # End of setDefaultSettings
@@ -205,8 +206,8 @@ init_fetchNewSvnFolder()
   git branch -f "$gitBranch" "$lfsBranch"
   exitIfErr 1 echo "Cannot set $gitBranch to $lfsBranch"
 
-  git push -f -u origin "$gitBranch"
-  exitIfErr 1 echo "Cannot push $gitBranch into origin"
+  git push -f -u $gitRemote "$gitBranch"
+  exitIfErr 1 echo "Cannot push $gitBranch into $gitRemote"
 }
 
 syncSVNtoGIT()
@@ -256,8 +257,8 @@ syncSVNtoGIT()
   lfsNewSHA1=`getSHA1 "$lfsBranch"`
   DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
 
-  git push -f -u origin "$lfsBranch"
-  exitIfErr 1 echo "Cannot push $lfsBranch to origin"
+  git push -f -u $gitRemote "$lfsBranch"
+  exitIfErr 1 echo "Cannot push $lfsBranch to $gitRemote"
 }
 
 syncGITtoSVN()
@@ -270,20 +271,22 @@ syncGITtoSVN()
   local tryLfsMerge="try/lfs/merge"
   local tryMerge="try/merge"
 
-  git pull -f origin "$gitBranch"
-  exitIfErr 1 echo "Cannot pull $gitBranch from origin"
+  git fetch $gitRemote "$gitBranch"
+  exitIfErr 1 echo "Cannot fetch $gitBranch from $gitRemote"
+  git branch -f "$gitBranch" $gitRemote/"$gitBranch"
+  exitIfErr 1 echo "Cannot link $gitBranch with $gitRemote"
+
+  local gitSHA=`getSHA1 "$gitBranch"`
+  local lfsSHA=`getSHA1 "$lfsBranch"`
+  if [ $gitSHA=$lfsSHA ]; then 
+    echo "Nothing to be syn."
+    return;
+  fi
 
   local mergeBaseSHA1=`git merge-base "$gitBranch" "$lfsBranch"`
   if [ "$mergeBaseSHA1" == "" ]; then
-    local gitSHA=`getSHA1 "$gitBranch"`
-    local lfsSHA=`getSHA1 "$lfsBranch"`
-    if [ $gitSHA=$lfsSHA ]; then 
-      echo "Nothing to be syn."
-      return;
-    else
-      >&2 echo "$gitBranch and $lfsBranch don't have common ancestor!."
-      myExit 1
-    fi
+    >&2 echo "$gitBranch and $lfsBranch don't have common ancestor!."
+    myExit 1
   fi
   echo "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
 
@@ -343,8 +346,8 @@ syncGITtoSVN()
     git branch -f "$svnBranch"  "$tryMerge"\~$uncommitedCnt
     exitIfErr 1 echo "Cannot move $svnBranch to $svnRemote"
 
-    git push -f -u origin "$lfsBranch"
-    exitIfErr 1 echo "Cannot push $lfsBranch to origin"
+    git push -f -u $gitRemote "$lfsBranch"
+    exitIfErr 1 echo "Cannot push $lfsBranch to $gitRemote"
   fi
 
   echo "****** Remove temporary branches"

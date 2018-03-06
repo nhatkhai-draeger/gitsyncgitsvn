@@ -27,8 +27,6 @@ add:
 [svn-remote "svn"]
 	url = http://xyz:8080/svn/projects/Cricket
   fetch = :refs/remotes/origin/feature/svn-cricket
-* what about
-   git svn reset  instead of rem .git/svn
 
 
  1 - Fetch from SVN (Cricket) - Capture the SHA1 range
