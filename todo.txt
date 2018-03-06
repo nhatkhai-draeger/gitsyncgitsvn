@@ -22,19 +22,13 @@ change (newer folder name)
 
 * set up .gitattribute for LFS tracking
 
-982ab24 (svn/lfs/GoldBox) Initial entry to SVN/GoldBox/Prelim
-03d8b26 Initial Proposal supporting info
-bd4cdf9 Created "GoldBox" folder and initiated with proposal from April, 2013
-
-b1998ef (svn-GoldBox, refs/original/refs/heads/svn/lfs/GoldBox) Initial entry to SVN/GoldBox/Prelim
-bec52ae Initial Proposal supporting info
-1edbd84 Created "GoldBox" folder and initiated with proposal from April, 2013
-
 WHEN Fresh checkout:
 add:
 [svn-remote "svn"]
 	url = http://xyz:8080/svn/projects/Cricket
   fetch = :refs/remotes/origin/feature/svn-cricket
+* what about
+   git svn reset  instead of rem .git/svn
 
 
  1 - Fetch from SVN (Cricket) - Capture the SHA1 range

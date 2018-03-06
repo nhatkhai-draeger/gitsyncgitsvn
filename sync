@@ -56,14 +56,25 @@ get_gitattributes
 init_fetchNewSvnFolder "${init[@]}"
 
 get_svnInfo
-##TODO: REMOVE - below block only for testing and DEBUG
-#git branch -f "$lfsBranch" bd4cdf9
-#get_svnInfo
-#svnSHA1="1edbd8422db"
+while [ "$run_again" != "no" ]; do
+  run_again=no
+  if [ "$svnNewSHA$lfsNewSHA" == "$svnSHA1$lfsSHA1" ]; then 
+    echo "****** No thing was updated Stop the sync loop"
+    echo "WARNING: You may need to check to correct problem and run sync again"
+    break; 
+  fi
 
-syncSVNtoGIT
+  ##TODO: REMOVE - below block only for testing and DEBUG
+  #git branch -f "$lfsBranch" bd4cdf9
+  #get_svnInfo
+  #svnSHA1="1edbd8422db"
 
-syncGITtoSVN
+  syncSVNtoGIT
+  syncGITtoSVN
+
+  local svnNewSHA=`getSHA1 "$svnBranch"`
+  local lfsNewSHA=`getSHA1 "$lfsBranch"`
+done
 
 cleanUp
 } # End of main
@@ -83,9 +94,10 @@ setDefaultSettings()
     -Xignore-cr-at-eol -Xignore-space-at-eol"
 
 
-  svnURL="http://ZYX:8080/svn/projects"
+  svnURL="http://ZYX846:8080/svn/projects"
   svnUser="ZYX"
   svnPwd="ZYX"
+  dcommitOpt="--rmdir"
 
   init=()
 } # End of setDefaultSettings
@@ -137,29 +149,30 @@ init_fetchNewSvnFolder()
   fi
 
   svnFolder="${1/\//-}"
-  svnBranch="svn-$svnFolder"
+  svnRemote="svn-$svnFolder"
+  svnBranch="svn/$svnFolder"
   lfsBranch="svn/lfs/$svnFolder"
 
   local curBranch=`getCurBranch`
   if [[ "$curBranch" == "$lfsBranch" ]] || \
-     [[ "$curBranch" == "svn/$svnFolder" ]]; then
+     [[ "$curBranch" == "$svnBranch" ]]; then
     git checkout -f "$gitBranch"
     exitIfErr 1 echo "Cannot switch to $gitBranch branch"
   fi
 
-  echo "****** Create a svn remote under $svnBranch branch"
+  echo "****** Create a svn remote under $svnRemote branch"
   git config svn-remote.svn.url   "$svnURL/$1"
-  git config svn-remote.svn.fetch ":refs/remotes/$svnBranch"
+  git config svn-remote.svn.fetch ":refs/remotes/$svnRemote"
   exitIfErr 1 echo "Cannot configure remote SVN to $svnURL!"
   rm -rf "$repoDir/.git/svn" 2> /dev/null
 
   git branch -D    "$lfsBranch"     2> /dev/null
-  git branch -D    "svn/$svnFolder" 2> /dev/null
-  git branch -D -r "$svnBranch"     2> /dev/null
+  git branch -D    "$svnBranch" 2> /dev/null
+  git branch -D -r "$svnRemote"     2> /dev/null
 
-  echo "****** Fetch SVN into $svnBranch"
+  echo "****** Fetch SVN into $svnRemote"
   git checkout --orphan "svn/${svnFolder}"
-  exitIfErr 1 echo "Cannot checkout empty orphan branch of $svnBranch!"
+  exitIfErr 1 echo "Cannot checkout empty orphan branch of $svnRemote!"
   git reset --hard 2> /dev/null
   git svn fetch -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 \
@@ -167,11 +180,11 @@ init_fetchNewSvnFolder()
     cat "$filterLog"
 
   echo "****** Create new branch $lfsBranch"
-  git branch "$lfsBranch" "$svnBranch"
+  git branch "$lfsBranch" "$svnRemote"
   exitIfErr 1 echo "Cannot create $lfsBranch branch"
 
-  git checkout -f "svn/$svnFolder"
-  exitIfErr 1 echo "Cannot switch to svn/$svnFolder"
+  git checkout -f "$svnBranch"
+  exitIfErr 1 echo "Cannot switch to $svnBranch"
   git reset --hard
 
   echo "****** Rebase SVN commits with lfs settings"
@@ -191,21 +204,23 @@ init_fetchNewSvnFolder()
 
   git branch -f "$gitBranch" "$lfsBranch"
   exitIfErr 1 echo "Cannot set $gitBranch to $lfsBranch"
+
+  git push -f -u origin "$gitBranch"
+  exitIfErr 1 echo "Cannot push $gitBranch into origin"
 }
 
 syncSVNtoGIT()
 {
   echo "###### Sync SVN commits to GIT ######"
-  echo "****** Fetch new commits from SVN to $svnBranch"
-  git checkout -f "svn/$svnFolder"
-  exitIfErr 1 echo "Cannot switch to svn/$svnFolder"
+  echo "****** Fetch new commits from SVN to $svnRemote"
+  git checkout -f "$svnBranch"
+  exitIfErr 1 echo "Cannot switch to $svnBranch"
   git reset --hard
   git svn fetch -A "$authorFile" 2> "$filterLog"
-  exitIfErr 1 \
-    echo "Cannot fetch commits from SVN! due to:" ";" \
+  exitIfErr 1 echo "Cannot fetch commits from SVN! due to:" ";" \
     cat "$filterLog"
-  svnNewSHA1=`getSHA1 "$svnBranch"`
-  DBG ${LINENO} "New SHA-1 for $svnBranch: $svnNewSHA1"
+  svnNewSHA1=`getSHA1 "$svnRemote"`
+  DBG "New SHA-1 for $svnRemote: $svnNewSHA1"
 
   if [[ $svnSHA1 == $svnNewSHA1 ]]; then
     echo "No new SVN commits to work on."
@@ -224,23 +239,25 @@ syncSVNtoGIT()
   git branch -f "$lfsBranch"
   exitIfErr 1 echo "Cannot move $lfsBranch to new rebase tip!"
   lfsNewSHA1=`getSHA1 "$lfsBranch"`
-  DBG ${LINENO} "New SHA-1 for $lfsBranch: $svnNewSHA1"
+  DBG "New SHA-1 for $lfsBranch: $svnNewSHA1"
 
-  echo "****** Go back to svn/$svnFolder after rebase"
-  git checkout -f "svn/$svnFolder"
-  exitIfErr 1 echo "Cannot switch to svn/$svnFolder"
+  echo "****** Go back to $svnBranch after rebase"
+  git checkout -f "$svnBranch"
+  exitIfErr 1 echo "Cannot switch to $svnBranch"
   git reset --hard
 
   echo "Apply LFS setting on new commits ${lfsSHA1:0:8}..$lfsBranch"
   git filter-branch --prune-empty -f --tree-filter " \
     cp \"${tmp}/.gitattributes\" .gitattributes;     \
     " -- ${lfsSHA1}.."${lfsBranch}" 2> "$filterLog"
-  exitIfErr 1 \
-    echo "Cannot apply LFS setting on new SVN commits!" ";" \
+  exitIfErr 1 echo "Cannot apply LFS setting on new SVN commits!" ";" \
     cat "$filterLog"
 
   lfsNewSHA1=`getSHA1 "$lfsBranch"`
-  DBG ${LINENO} "New SHA-1 for $lfsBranch: $lfsNewSHA1"
+  DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
+
+  git push -f -u origin "$lfsBranch"
+  exitIfErr 1 echo "Cannot push $lfsBranch to origin"
 }
 
 syncGITtoSVN()
@@ -253,10 +270,20 @@ syncGITtoSVN()
   local tryLfsMerge="try/lfs/merge"
   local tryMerge="try/merge"
 
+  git pull -f origin "$gitBranch"
+  exitIfErr 1 echo "Cannot pull $gitBranch from origin"
+
   local mergeBaseSHA1=`git merge-base "$gitBranch" "$lfsBranch"`
   if [ "$mergeBaseSHA1" == "" ]; then
-    >&2 echo "$gitBranch and $lfsBranch don't have common ancestor!."
-    myExit 1
+    local gitSHA=`getSHA1 "$gitBranch"`
+    local lfsSHA=`getSHA1 "$lfsBranch"`
+    if [ $gitSHA=$lfsSHA ]; then 
+      echo "Nothing to be syn."
+      return;
+    else
+      >&2 echo "$gitBranch and $lfsBranch don't have common ancestor!."
+      myExit 1
+    fi
   fi
   echo "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
 
@@ -283,13 +310,55 @@ syncGITtoSVN()
   exitIfErr 1 echo "Cannot create $tryMerge branch!"
 
   echo "****** Remove LFS settings"
-  git filter-branch -f --tree-filter 'git rm -f .gitattributes' \
-    -- "$lfsBranch".."$tryMerge"
-  exitIfErr 1 echo "Cannot remove LFS settings from git commits!"
+  git filter-branch -f --tree-filter 'git rm --quiet -f .gitattributes' \
+    -- "$lfsBranch".."$tryMerge" 2> "$filterLog"
+  exitIfErr 1 echo "Cannot remove LFS settings from git commits!" ";" \
+    cat "$filterLog"
   
-  echo "****** Put new git commits onto $svnBranch"
-  git rebase --onto "$svnBranch" $mergeBaseSHA1 "$tryMerge"
-  exitIfErr 1 echo "Cannot rebase $tryLsfMerge branch onto of $svnBranch!"
+  echo "****** Put new git commits onto $svnRemote"
+  git rebase --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge"
+  exitIfErr 1 echo "Cannot rebase $tryLfsMerge branch onto of $svnRemote!"
+
+  echo "****** Do DCommit to push git commits into SVN server"
+  git svn dcommit --no-rebase ${dcommitOpt} $tryMerge 2> "$filterLog"
+  if [ $? != 0 ]; then
+    echo ""
+    echo "WARNING: DCommit failed with following message:"
+    cat "$filterLog"
+    echo ""
+    # TODO: Is continue with reset --hard work?
+  fi
+  git reset --hard
+
+  echo "****** Figure what were committed into SVN and update the states"
+  local newcommitCnt=`git log --oneline "$svnBranch"..$tryMerge | wc -l`
+  local uncommitedCnt=`git log --oneline "$svnRemote"..$tryMerge | wc -l`
+  echo "There is $uncommitedCnt/$newcommitCnt not committed into SVN server"
+
+  if [ $uncommitedCnt != $newcommitCnt ]; then
+    local lfsSHA=`getSHA1 "$tryLfsMerge"\~$uncommitedCnt`
+    git branch -f "$lfsBranch" "$tryLfsMerge"\~$uncommitedCnt
+    exitIfErr 1 echo "Cannot move $lfsBranch to $lfsSHA"
+
+    git branch -f "$svnBranch"  "$tryMerge"\~$uncommitedCnt
+    exitIfErr 1 echo "Cannot move $svnBranch to $svnRemote"
+
+    git push -f -u origin "$lfsBranch"
+    exitIfErr 1 echo "Cannot push $lfsBranch to origin"
+  fi
+
+  echo "****** Remove temporary branches"
+  git checkout -f "$svnBranch"
+  git branch -D "${tryLfsMerge}"
+  git branch -D "${tryMerge}"
+
+  echo "****** Cleanup git report"
+  git reflog expire
+  git gc
+
+  if [ $uncommitedCnt != 0 ]; then
+    run_again=yes
+  fi
 }
 
 get_gitattributes()
@@ -302,23 +371,24 @@ get_gitattributes()
 get_svnInfo()
 {
   # Figure out svn branch, and folder name
-  svnBranch=`git config --get svn-remote.svn.fetch`
-  if [ "$svnBranch" == "" ]; then
+  svnRemote=`git config --get svn-remote.svn.fetch`
+  if [ "$svnRemote" == "" ]; then
     >&2 echo "Cannot found SVN branch!"
     >&2 echo "Please use --init SVN_FOLDER"
     myExit 1
   fi
 
-  svnBranch="${svnBranch##*/}"
-  svnFolder="${svnBranch##*svn-}"
+  svnRemote="${svnRemote##*/}"
+  svnFolder="${svnRemote##*svn-}"
+  svnBranch="svn/$svnFolder"
   lfsBranch="svn/lfs/$svnFolder"
 
   lfsSHA1=`getSHA1 "$lfsBranch"`
-  svnSHA1=`getSHA1 "$svnBranch"`
+  svnSHA1=`getSHA1 "$svnRemote"`
 
-  DBG ${LINENO} "SVN folder label: $svnFolder"
-  DBG ${LINENO} "SVN branch      : $svnSHA1 - $svnBranch"
-  DBG ${LINENO} "LFS sync branch : $lfsSHA1 - $lfsBranch"
+  DBG "SVN folder label: $svnFolder"
+  DBG "SVN branch      : $svnSHA1 - $svnRemote"
+  DBG "LFS sync branch : $lfsSHA1 - $lfsBranch"
 }
 
 getSvnCommiters()
@@ -384,9 +454,8 @@ myExit()
 
 DBG()
 {
-  #local a=$1
-  #shift
-  #echo "DEBUG:${a:0:4} $@"
+  local line=`caller`
+  echo "DEBUG:${line%% *:0:4} $@"
   /dev/null
 }
 
