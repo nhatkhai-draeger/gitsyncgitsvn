@@ -1,3 +1,4 @@
+## Manual trial
 >svn log -q | awk -F '|' '/^r/ {sub("^ ", "", $2); sub(" $", "", $2); print $2" = "$2" <"$2">"}' | sort -u > authors-transform.txt
 Edit authors-transform.txt file xyz = xyz <xyz.xyz@xyz.com>
 
@@ -20,15 +21,8 @@ change (newer folder name)
 >git checkout -b feature/svn-cricket git-svn-cricket
 >git push -u origin feature/svn-cricket
 
-* set up .gitattribute for LFS tracking
-
-WHEN Fresh checkout:
-add:
-[svn-remote "svn"]
-	url = http://xyz:8080/svn/projects/Cricket
-  fetch = :refs/remotes/origin/feature/svn-cricket
-
-
+## Script method
+ * - set up .gitattribute for LFS tracking
  1 - Fetch from SVN (Cricket) - Capture the SHA1 range
  2 - Rebase onto svn/lfs/Cricket - Capture then SHA1 range
  3 - Apply filter-branch SHA1..svn/lfs/Cricket
@@ -40,10 +34,10 @@ add:
  
  * - Lock master
  * - Fetch master from Stash
- 4 - Rebase master onto svn/lfs/Cricket
- * - Push master to Stash
- * - UnLock master
+ 4 - Merge svn/lfs/Cricket to master
  * - Rebase master on svn/Cricket call try/master
  * - Apply filter-branch to undo LFS
  6 - SVN Dcommit
- * - ?Handle after Dcommit error or success
+ * - Handle after Dcommit error or success
+ * - Push master to Stash
+ * - UnLock master
