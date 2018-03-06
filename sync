@@ -167,7 +167,9 @@ init_fetchNewSvnFolder()
   echo "****** Rebase SVN commits with lfs settings"
   git filter-branch --prune-empty -f --tree-filter " \
     cp \"${tmp}/.gitattributes\" .gitattributes; \
-    git ls-files | while read f; do git add \"\$f\"; done; \
+    git ls-files | xargs -d \\\\n git check-attr filter \
+      | sed -nr \"s/(.*): filter: lfs/\1/p\" \
+      | while read f; do git add \"\$f\"; done; \
   " -- "${lfsBranch}" 2> "$filterLog"
   exitIfErr 1 \
     echo "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
@@ -222,9 +224,11 @@ syncSVNtoGIT()
   git reset --hard
 
   echo "Apply LFS setting on new commits ${lfsSHA1:0:8}..$lfsBranch"
-  git filter-branch --prune-empty -f --tree-filter ' \
-    git ls-files | while read f; do git add "$f"; done; \
-  ' -- ${lfsSHA1}.."${lfsBranch}" 2> "$filterLog"
+  git filter-branch --prune-empty -f --tree-filter " \
+    git ls-files | xargs -d \\\\n git check-attr filter \
+      | sed -nr \"s/(.*): filter: lfs/\1/p\" \
+      | while read f; do git add \"\$f\"; done; \
+  " -- ${lfsSHA1}.."${lfsBranch}" 2> "$filterLog"
   exitIfErr 1 \
     echo "Cannot apply LFS setting on new SVN commits!" ";" \
     cat "$filterLog"
@@ -236,7 +240,10 @@ syncSVNtoGIT()
 syncGITtoSVN()
 {
   # git merge-base
-  /dev/null  
+  /dev/null 
+
+  # Undo LFS settings
+  git filter-branch -f --tree-filter 'git rm -f .gitattributes;' -- test
 }
 
 get_gitattributes()
