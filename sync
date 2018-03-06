@@ -25,6 +25,12 @@ Options:
 
   --svnPwd
       Specify svn passowrd.
+
+  -s, --strategy
+      Specify git merge options. (Default is $mergeOpt)
+
+  -b, --branch
+      Specify git main branch to sync with SVN. (Default is $gitBranch)
 EOF
 } # end of showHelp
 
@@ -40,10 +46,13 @@ while (( "$#" )); do
   if [[ $1 =~ ^--git$     ]]; then gitURL="$2"; shift; fi
   if [[ $1 =~ ^--svnUser$ ]]; then svnURL="$2"; shift; fi
   if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2"; shift; fi
+  if [[ $1 =~ ^-s|--strategy$ ]]; then mergeOpt="$2"; shift; fi
+  if [[ $1 =~ ^-b|--branch$   ]]; then gitBranch="$2"; shift; fi
   shift
 done
 
 checkSettings
+get_gitattributes
 init_fetchNewSvnFolder "${init[@]}"
 
 get_svnInfo
@@ -70,6 +79,9 @@ setDefaultSettings()
   gitURL="ssh://git@stash.xyz.com:7999"
   gitBranch="master"
   repoDir="$curDir"
+  mergeOpt="-s recursive -Xours -Xpatience \
+    -Xignore-cr-at-eol -Xignore-space-at-eol"
+
 
   svnURL="http://ZYX:8080/svn/projects"
   svnUser="ZYX"
@@ -128,8 +140,6 @@ init_fetchNewSvnFolder()
   svnBranch="svn-$svnFolder"
   lfsBranch="svn/lfs/$svnFolder"
 
-  get_gitattributes
-
   local curBranch=`getCurBranch`
   if [[ "$curBranch" == "$lfsBranch" ]] || \
      [[ "$curBranch" == "svn/$svnFolder" ]]; then
@@ -166,11 +176,8 @@ init_fetchNewSvnFolder()
 
   echo "****** Rebase SVN commits with lfs settings"
   git filter-branch --prune-empty -f --tree-filter " \
-    cp \"${tmp}/.gitattributes\" .gitattributes; \
-    git ls-files | xargs -d \\\\n git check-attr filter \
-      | sed -nr \"s/(.*): filter: lfs/\1/p\" \
-      | while read f; do git add \"\$f\"; done; \
-  " -- "${lfsBranch}" 2> "$filterLog"
+    cp \"${tmp}/.gitattributes\" .gitattributes;     \
+    " -- "${lfsBranch}" 2> "$filterLog"
   exitIfErr 1 \
     echo "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
     cat "$filterLog"
@@ -188,6 +195,7 @@ init_fetchNewSvnFolder()
 
 syncSVNtoGIT()
 {
+  echo "###### Sync SVN commits to GIT ######"
   echo "****** Fetch new commits from SVN to $svnBranch"
   git checkout -f "svn/$svnFolder"
   exitIfErr 1 echo "Cannot switch to svn/$svnFolder"
@@ -225,10 +233,8 @@ syncSVNtoGIT()
 
   echo "Apply LFS setting on new commits ${lfsSHA1:0:8}..$lfsBranch"
   git filter-branch --prune-empty -f --tree-filter " \
-    git ls-files | xargs -d \\\\n git check-attr filter \
-      | sed -nr \"s/(.*): filter: lfs/\1/p\" \
-      | while read f; do git add \"\$f\"; done; \
-  " -- ${lfsSHA1}.."${lfsBranch}" 2> "$filterLog"
+    cp \"${tmp}/.gitattributes\" .gitattributes;     \
+    " -- ${lfsSHA1}.."${lfsBranch}" 2> "$filterLog"
   exitIfErr 1 \
     echo "Cannot apply LFS setting on new SVN commits!" ";" \
     cat "$filterLog"
@@ -239,11 +245,51 @@ syncSVNtoGIT()
 
 syncGITtoSVN()
 {
-  # git merge-base
-  /dev/null 
+  echo "###### Sync GIT commits to SVN ######"
+  #       *--* <--gitBranch
+  #     /
+  # *--*--* <--lfsBranch
+  #
+  local tryLfsMerge="try/lfs/merge"
+  local tryMerge="try/merge"
 
-  # Undo LFS settings
-  git filter-branch -f --tree-filter 'git rm -f .gitattributes;' -- test
+  local mergeBaseSHA1=`git merge-base "$gitBranch" "$lfsBranch"`
+  if [ "$mergeBaseSHA1" == "" ]; then
+    >&2 echo "$gitBranch and $lfsBranch don't have common ancestor!."
+    myExit 1
+  fi
+  echo "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
+
+  echo "****** Create $tryLfsMerge branch for merging"
+  local curBranch=`getCurBranch`
+  if [[ $curBranch == $tryLfsMerge ]] || \
+     [[ $curBranch == $tryMerge    ]]; then 
+    git checkout -f "$lfsBranch" 
+    exitIfErr 1 echo "Cannot checkout $lfsBranch!"
+  fi
+  git branch -D $tryLfsMerge 2> /dev/null
+  git branch -D $tryMerge 2> /dev/null
+  
+  git checkout -f -B $tryLfsMerge "$lfsBranch"
+  exitIfErr 1 echo "Cannot checkout $lfsBranch!"
+  git reset --hard
+
+  echo "****** Try to merge current $gitBranch to $lfsBranch "
+  git merge ${mergeOpt} -m "Auto merge $gitBranch to $lfsBranch" $gitBranch
+  exitIfErr 1 echo "Cannot merge $lfsBranch to $gitBranch!" ";" \
+    git merge --abort "2>" /dev/null
+
+  git branch -f $tryMerge $tryLfsMerge
+  exitIfErr 1 echo "Cannot create $tryMerge branch!"
+
+  echo "****** Remove LFS settings"
+  git filter-branch -f --tree-filter 'git rm -f .gitattributes' \
+    -- "$lfsBranch".."$tryMerge"
+  exitIfErr 1 echo "Cannot remove LFS settings from git commits!"
+  
+  echo "****** Put new git commits onto $svnBranch"
+  git rebase --onto "$svnBranch" $mergeBaseSHA1 "$tryMerge"
+  exitIfErr 1 echo "Cannot rebase $tryLsfMerge branch onto of $svnBranch!"
 }
 
 get_gitattributes()
