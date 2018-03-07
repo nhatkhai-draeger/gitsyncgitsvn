@@ -169,18 +169,21 @@ init_fetchNewSvnFolder()
   exitIfErr 1 echo "Cannot configure remote SVN to $svnURL!"
   rm -rf "$repoDir/.git/svn" 2> /dev/null
 
-  git branch -D    "$lfsBranch"     2> /dev/null
+  git branch -D    "$lfsBranch" 2> /dev/null
   git branch -D    "$svnBranch" 2> /dev/null
-  git branch -D -r "$svnRemote"     2> /dev/null
+  git branch -D -r "$svnRemote" 2> /dev/null
 
   echo "****** Fetch SVN into $svnRemote"
   git checkout --orphan "svn/${svnFolder}"
   exitIfErr 1 echo "Cannot checkout empty orphan branch of $svnRemote!"
+
   git reset --hard 2> /dev/null
+
   git svn fetch -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 \
     echo "Cannot fetch commits from SVN ($svnURL)! due to;" ";" \
     cat "$filterLog"
+
 
   echo "****** Create new branch $lfsBranch"
   git branch "$lfsBranch" "$svnRemote"
@@ -197,6 +200,9 @@ init_fetchNewSvnFolder()
   exitIfErr 1 \
     echo "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
     cat "$filterLog"
+
+  git lfs mirgate import "$lfsBranch"
+  exitIfErr 1 echo "Failed to migrate to LFS"
 
   git update-ref -d "refs/original/refs/heads/$lfsBranch"
 
@@ -257,6 +263,9 @@ syncSVNtoGIT()
     " -- ${lfsSHA1}.."${lfsBranch}" 2> "$filterLog"
   exitIfErr 1 echo "Cannot apply LFS setting on new SVN commits!" ";" \
     cat "$filterLog"
+
+  git lfs mirgate import --exclude-ref=${lfsSHA1} --include-ref="${lfsBranch}"
+  exitIfErr 1 echo "Failed to run lfs migrate to LFS"
 
   lfsNewSHA1=`getSHA1 "$lfsBranch"`
   DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
@@ -321,7 +330,7 @@ syncGITtoSVN()
   exitIfErr 1 echo "Cannot create $tryMerge branch!"
 
   echo "****** Remove LFS settings"
-  git filter-branch -f --tree-filter 'git rm --quiet -f .gitattributes' \
+  git filter-branch -f --tree-filter 'rm -f .gitattributes' \
     -- "$lfsBranch".."$tryMerge" 2> "$filterLog"
   exitIfErr 1 echo "Cannot remove LFS settings from git commits!" ";" \
     cat "$filterLog"
@@ -388,6 +397,10 @@ get_gitattributes()
 {
   # Capture project specific LFS setting
   git show "$gitBranch:.gitattributes" > "$tmp/.gitattributes" 2> /dev/null
+  lfsFilter=`sed -nE "s/ *([^ ]*)  *filter=lfs .*/\1/p" \
+                 "$tmp/.gitattributes" \
+             | paste -sd ","`
+  DBG "LFS Filter are $lfsFilter"
   exitIfErr 1 echo "Cannot find .gitattributes from $gitBranch branch!"
 }
 
