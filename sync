@@ -208,7 +208,7 @@ init_fetchNewSvnFolder()
     echo "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
     cat "$filterLog"
 
-  git lfs migrate import "$lfsBranch"
+  git lfs migrate import --include="$lfsFilter" "$lfsBranch"
   exitIfErr 1 echo "Failed to migrate to LFS"
 
   git update-ref -d "refs/original/refs/heads/$lfsBranch"
@@ -271,9 +271,16 @@ syncSVNtoGIT()
   exitIfErr 1 echo "Cannot apply LFS setting on new SVN commits!" ";" \
     cat "$filterLog"
 
-  git lfs migrate import --exclude-ref=${lfsSHA1} --include-ref="${lfsBranch}"
+  git lfs migrate import  \
+    --include="$lfsFilter" \
+    --exclude-ref=${lfsSHA1} \
+    --include-ref="${lfsBranch}"
   exitIfErr 1 echo "Failed to run lfs migrate to LFS"
 
+  #TODO: Check consitencyr 
+  #git log --name-only --oneline | sed -E "s/^[0-9a-f]+ /0000 /" >/tmp/a5
+  #git log --name-only --oneline | sed -E "/\.gitattributes.*/d" | sed -E "s/^[0-9a-f]+ (.*) git-svn-id:.*$/0000 \1/" >/tmp/a5
+   
   lfsNewSHA1=`getSHA1 "$lfsBranch"`
   DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
 
