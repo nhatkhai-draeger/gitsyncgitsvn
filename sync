@@ -208,7 +208,7 @@ init_fetchNewSvnFolder()
     echo "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
     cat "$filterLog"
 
-  git lfs mirgate import "$lfsBranch"
+  git lfs migrate import "$lfsBranch"
   exitIfErr 1 echo "Failed to migrate to LFS"
 
   git update-ref -d "refs/original/refs/heads/$lfsBranch"
@@ -271,7 +271,7 @@ syncSVNtoGIT()
   exitIfErr 1 echo "Cannot apply LFS setting on new SVN commits!" ";" \
     cat "$filterLog"
 
-  git lfs mirgate import --exclude-ref=${lfsSHA1} --include-ref="${lfsBranch}"
+  git lfs migrate import --exclude-ref=${lfsSHA1} --include-ref="${lfsBranch}"
   exitIfErr 1 echo "Failed to run lfs migrate to LFS"
 
   lfsNewSHA1=`getSHA1 "$lfsBranch"`
