@@ -31,6 +31,11 @@ Options:
 
   -b, --branch
       Specify git main branch to sync with SVN. (Default is $gitBranch)
+
+  -r, --rebaseSync
+      Use rebase to synchronize when svn and git branch as splited. 
+      (Default is using merge to synchronize)
+
 EOF
 } # end of showHelp
 
@@ -48,6 +53,7 @@ while (( "$#" )); do
   if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2"; shift; fi
   if [[ $1 =~ ^-s|--strategy$ ]]; then mergeOpt="$2"; shift; fi
   if [[ $1 =~ ^-b|--branch$   ]]; then gitBranch="$2"; shift; fi
+  if [[ $1 =~ ^-r|--rebaseSync$ ]]; then rebaseSync="yes"; fi
   shift
 done
 
@@ -86,6 +92,7 @@ setDefaultSettings()
   tmp="/tmp/`basename $0`"
   
   authorFile="../authors-transform.txt"
+  rebaseSync="no"
 
   gitURL="ssh://git@stash.XYZ.com:7999"
   gitRemote=origin
@@ -286,8 +293,10 @@ syncGITtoSVN()
 
   #TODO: Lock $gitBranch
 
+  echo "***** Update $gitBranch from git server"
   git fetch $gitRemote "$gitBranch"
   exitIfErr 1 echo "Cannot fetch $gitBranch from $gitRemote"
+
   git branch -f "$gitBranch" $gitRemote/"$gitBranch"
   exitIfErr 1 echo "Cannot link $gitBranch with $gitRemote"
 
@@ -305,26 +314,41 @@ syncGITtoSVN()
   fi
   echo "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
 
-  echo "****** Create $tryLfsMerge branch for merging"
-  local curBranch=`getCurBranch`
-  if [[ $curBranch == $tryLfsMerge ]] || \
-     [[ $curBranch == $tryMerge    ]]; then 
-    git checkout -f "$lfsBranch" 
-    exitIfErr 1 echo "Cannot checkout $lfsBranch!"
+  if [ "$rebaseSync" == "yes" ]; then
+    echo "****** Rebase $gitBranch onto $lfsBranch"
+    git rebase ${mergeOpt} --onto "$lfsBranch" $mergeBaseSHA1 "$gitBranch"
+    exitIfErr 1 echo "Cannot rebase $gitBranch onto $lfsBranch!"
+
+    mergeBaseSHA1=`getSHA1 "$lfsBranch"`
+
+  elif [ `getSHA1 "$gitBranch"` == $mergeBaseSHA1 ]; then
+    echo "****** Fast Forward $gitBranch."
+    git checkout -f "$gitBranch" 
+    exitIfErr 1 echo "Cannot checkout $gitBranch!"
+
+    git merge --ff-only "${lfsBranch}"
+    exitIfErr 1 echo "Cannot fast forward $gitBranch!"
   fi
+
   git branch -D $tryLfsMerge 2> /dev/null
-  git branch -D $tryMerge 2> /dev/null
+  git branch -D $tryMerge    2> /dev/null
   
   git checkout -f -B $tryLfsMerge "$lfsBranch"
   exitIfErr 1 echo "Cannot checkout $lfsBranch!"
   git reset --hard
 
-  echo "****** Try to merge current $gitBranch to $lfsBranch "
-  git merge ${mergeOpt} -m "Auto merge $gitBranch to $lfsBranch" $gitBranch
-  exitIfErr 1 echo "Cannot merge $lfsBranch to $gitBranch!" ";" \
-    git merge --abort "2>" /dev/null
+  if [ `getSHA1 "$lfsBranch"` == $mergeBaseSHA1 ]; then
+    echo "****** Fast Forward $lfsBranch."
+    git merge --ff-only "${gitBranch}"
+    exitIfErr 1 echo "Cannot fast forward $gitBranch!"
 
-  #TODO: Unlock $gitBranch if the merge result only fast forwarded
+    #TODO: Unlock $gitBranch if the merge result only fast forwarded
+  else
+    echo "****** Try to merge $lfsBranch to $gitBranch"
+    git merge ${mergeOpt} -m "Auto merge $lfsBranch to $gitBranch" "$gitBranch"
+    exitIfErr 1 echo "Cannot merge $lfsBranch to $gitBranch!" ";" \
+      git merge --abort "2>" /dev/null
+  fi
 
   git branch -f $tryMerge $tryLfsMerge
   exitIfErr 1 echo "Cannot create $tryMerge branch!"
@@ -491,7 +515,8 @@ myExit()
 DBG()
 {
   local line=`caller`
-  echo "DEBUG:${line%% *:0:4} $@"
+  line=${line%% *}
+  echo "DEBUG:${line:0:4} $@"
   /dev/null
 }
 
