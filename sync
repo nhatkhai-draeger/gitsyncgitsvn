@@ -224,6 +224,9 @@ init_fetchNewSvnFolder()
 
   git push -f -u $gitRemote "$gitBranch"
   exitIfErr 1 echo "Cannot push $gitBranch into $gitRemote"
+
+  git push -f -u $gitRemote "$lfsBranch"
+  exitIfErr 1 echo "Cannot push $lfsBranch into $gitRemote"
 }
 
 syncSVNtoGIT()
