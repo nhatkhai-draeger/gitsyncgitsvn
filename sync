@@ -105,6 +105,7 @@ setDefaultSettings()
   svnURL="http://ZYX846:8080/svn/projects"
   svnUser="ZYX"
   svnPwd="ZYX"
+  #TODO: Remove -n to have Dcommit actually push into the SVN server
   dcommitOpt="-n --rmdir"
 
   init=()
@@ -277,10 +278,6 @@ syncSVNtoGIT()
     --include-ref="${lfsBranch}"
   exitIfErr 1 echo "Failed to run lfs migrate to LFS"
 
-  #TODO: Check consitencyr 
-  #git log --name-only --oneline | sed -E "s/^[0-9a-f]+ /0000 /" >/tmp/a5
-  #git log --name-only --oneline | sed -E "/\.gitattributes.*/d" | sed -E "s/^[0-9a-f]+ (.*) git-svn-id:.*$/0000 \1/" >/tmp/a5
-   
   lfsNewSHA1=`getSHA1 "$lfsBranch"`
   DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
 
@@ -431,6 +428,8 @@ get_gitattributes()
   lfsFilter=`sed -nE "s/ *([^ ]*)  *filter=lfs .*/\1/p" \
                  "$tmp/.gitattributes" \
              | paste -sd ","`
+  local lfsFilterUpper=`echo "$lfsFilter" | tr "[:lower:]" "[:upper:]"`
+  lfsFilter=${lfsFilter},${lfsFilterUpper}
   DBG "LFS Filter are $lfsFilter"
   exitIfErr 1 echo "Cannot find .gitattributes from $gitBranch branch!"
 }
