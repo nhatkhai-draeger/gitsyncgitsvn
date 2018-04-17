@@ -197,7 +197,7 @@ init_fetchNewSvnFolder()
 
   git reset --hard 2> /dev/null
 
-  git svn fetch -A "$authorFile" 2> "$filterLog"
+  git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 \
     echo "Cannot fetch commits from SVN ($svnURL)! due to;" ";" \
     cat "$filterLog"
@@ -252,7 +252,7 @@ syncSVNtoGIT()
   git reset --hard
 
   #TODO: Lock SVN Folder
-  git svn fetch -A "$authorFile" 2> "$filterLog"
+  git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 echo "Cannot fetch commits from SVN! due to:" ";" \
     cat "$filterLog"
   local svnNewSHA1=`getSHA1 "$svnRemote"`
@@ -412,7 +412,8 @@ syncGITtoSVN()
 
   echo "****** Do DCommit to push git commits into SVN server"
   read -p "Check $tryMerge before run dcommit, Press Enter...."
-  git svn dcommit --no-rebase ${dcommitOpt} $tryMerge 2> "$filterLog"
+  git svn dcommit --username "$svnUser" --no-rebase \
+    ${dcommitOpt} $tryMerge 2> "$filterLog"
   if [ $? != 0 ]; then
     echo ""
     echo "WARNING: DCommit failed with following message:"
