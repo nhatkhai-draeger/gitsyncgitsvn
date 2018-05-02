@@ -330,7 +330,7 @@ syncGITtoSVN()
   #TODO: Lock $gitBranch
 
   echo "***** Update $gitBranch from git server"
-  git pull $gitRemote "$gitBranch"
+  git fetch $gitRemote "$gitBranch"
   exitIfErr 1 echo "Cannot pull $gitBranch from $gitRemote"
 
   git branch -f "$gitBranch" $gitRemote/"$gitBranch"
@@ -371,10 +371,29 @@ syncGITtoSVN()
     git branch -f "$tryMerge" "$gitBranch"
     exitIfErr 1 echo "Cannot create branch from $gitBranch"
 
+    git lfs uninstall
+
+    local oldHead
     git rebase -s recursive -X theirs \
       --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge"
-    exitIfErr 1 echo "Cannot rebase $gitBranch branch onto of $svnRemote!" \
-      ";" git rebase --abort
+
+    # This loop try to resolve some of the conflict that can be simply 
+    # solve - such as:
+    # * Removed files from git, but detected modified from SVN
+    while [[ $? != 0 ]]; do
+      local newHead=`getSHA1 HEAD`
+      if [[ $newHead == $oldHead ]]; then 
+        echo "Cannot rebase $gitBranch branch onto of $svnRemote!"
+        git rebase --abort
+        myExit 1
+      fi
+
+      git status --porcelain | sed -ne "s/^UD \(.*\)$/\1/p" \
+        | while read f; do git rm "$f"; done
+
+      oldHead=$newHead
+      git rebase --continue
+    done;
 
     if [[ "$lfsFilter" != "" ]]; then
       echo "****** Remove LFS settings"
@@ -392,6 +411,8 @@ syncGITtoSVN()
       exitIfErr 1 echo "Cannot remove LFS settings from git commits!" ";" \
         cat "$filterLog"
     fi
+
+    git lfs install 
 
     read -p "Check $tryMerge before run dcommit, Press Enter...."
 
@@ -414,9 +435,7 @@ syncGITtoSVN()
     ((uncommitedCnt = newcommitCnt - commitedCnt ))
     echo "There is $uncommitedCnt/$newcommitCnt uncommitted into SVN server"
 
-    read -p "Check $svnRemote, $tryMerge before update branches.
-      Current implementation not able to roll-back if dcommit not fully work with merge strategy
-      Press Enter...."
+    read -p "Check $svnRemote before update branches.Press Enter...."
 
     if [ "$rebaseSync" == "yes" ]; then
       echo "****** Rebase $gitBranch onto $lfsBranch"
@@ -439,6 +458,8 @@ syncGITtoSVN()
       -m "Auto merge $lfsBranch to $gitBranch" "$tryLfsMerge"
     exitIfErr 1 echo "Cannot merge $lfsBranch to $gitBranch!" ";" \
       git merge --abort "2>" /dev/null
+
+    git branch -f "$svnBranch" "$svnRemote"
 
     read -p "Check before rebase $gitBranch, Press Enter...."
 
