@@ -270,7 +270,7 @@ syncSVNtoGIT()
     # Uninstall LFS to avoid the error like should be a point but..
     git lfs uninstall 2> /dev/null
 
-    git rebase -s recursive -X theirs \
+    git rebase -s recursive -X theirs --keep-empty \
       --onto "$lfsBranch" $svnSHA1 $svnNewSHA1
     local error=$?
 
@@ -298,7 +298,9 @@ syncSVNtoGIT()
     exitIfErr 1 echo "Cannot apply LFS setting on new SVN commits!" ";" \
       cat "$filterLog"
 
-    read -p "Please check if filter-brach $lfsBranch is enough to apply LFS, Press Enter...."
+    # It is often filter-branch along is not enough to convert file into
+    # LFS - seem like file that modified are the once did not converted
+    # into LFS
     git lfs migrate import  \
       --include="$lfsFilter" \
       --exclude-ref=${lfsSHA1} \
@@ -375,24 +377,39 @@ syncGITtoSVN()
 
     local oldHead
     git rebase -s recursive -X theirs \
-      --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge"
+      --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge" 2> "$tmp/rebase"
 
     # This loop try to resolve some of the conflict that can be simply 
     # solve - such as:
     # * Removed files from git, but detected modified from SVN
     while [[ $? != 0 ]]; do
-      local newHead=`getSHA1 HEAD`
+      local newHead=`cat .git/rebase-merge/current`
+
+      echo "**** Try to resolve conflict automatically at $newHead"
+
       if [[ $newHead == $oldHead ]]; then 
         echo "Cannot rebase $gitBranch branch onto of $svnRemote!"
         git rebase --abort
         myExit 1
       fi
 
-      git status --porcelain | sed -ne "s/^UD \(.*\)$/\1/p" \
+      # Conflict "UD" - " unmerged, Deleted by theirs (master)
+      # * A file added from SVN but remove by master
+      git status --porcelain > "$tmp/gitStatus"
+      sed -ne "s/^UD \(.*\)$/\1/p" "$tmp/gitStatus" \
         | while read f; do git rm "$f"; done
 
+
+      # Conflict "DU" - " deleted by ours, unmerged
+      # * A file may had been exist only in master all along, but now
+      # changed - which required to add into SVN
+      # * A file added from master, but had been removed by SVN
+      sed -ne "s/^DU \(\.git.*\)$/\1/p" "$tmp/gitStatus" \
+        | while read f; do git add "$f"; done
+
       oldHead=$newHead
-      git rebase --continue
+      git rebase --continue 2>> "$tmp/rebase"
+
     done;
 
     if [[ "$lfsFilter" != "" ]]; then
@@ -417,8 +434,7 @@ syncGITtoSVN()
     read -p "Check $tryMerge before run dcommit, Press Enter...."
 
     echo "****** Do DCommit to push git commits into SVN server"
-    git svn dcommit --username "$svnUser" --no-rebase \
-      ${dcommitOpt} $tryMerge 2> "$filterLog"
+    git svn dcommit  ${dcommitOpt} $tryMerge 2> "$filterLog"
     if [ $? != 0 ]; then
       echo ""
       echo "WARNING: DCommit failed with following message:"
