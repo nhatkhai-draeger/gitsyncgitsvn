@@ -39,6 +39,9 @@ Options:
       Use merge to synchronize when svn and git branch as splited. 
       (Default)
 
+  -n, --no-svnCommit
+      Use to do a dry run dcommit on SVN. 
+
 EOF
 } # end of showHelp
 
@@ -58,6 +61,7 @@ while (( "$#" )); do
   if [[ $1 =~ ^-b|--branch$   ]]; then gitBranch="$2"; shift; fi
   if [[ $1 =~ ^-r|--rebaseSync$ ]]; then rebaseSync="yes"; fi
   if [[ $1 =~ ^-nr|--no-rebaseSync$ ]]; then rebaseSync="no"; fi
+  if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt="-n $dcommitOpt"; fi
   shift
 done
 
@@ -110,9 +114,7 @@ setDefaultSettings()
   svnURL="http://ZYX846:8080/svn/projects"
   svnUser="ZYX"
   svnPwd="ZYX"
-  #TODO: Remove -n to have Dcommit actually push into the SVN server
-  dcommitOpt="-n --rmdir"
-  #dcommitOpt="--rmdir"
+  dcommitOpt="--rmdir"
 
   init=()
 } # End of setDefaultSettings
