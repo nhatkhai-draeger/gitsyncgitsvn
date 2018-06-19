@@ -42,6 +42,9 @@ Options:
   -n, --no-svnCommit
       Use to do a dry run dcommit on SVN. 
 
+  -dbg, --debug
+      Will stop a major point and ask for check before continue.
+
 EOF
 } # end of showHelp
 
@@ -62,6 +65,7 @@ while (( "$#" )); do
   if [[ $1 =~ ^-r|--rebaseSync$ ]]; then rebaseSync="yes"; fi
   if [[ $1 =~ ^-nr|--no-rebaseSync$ ]]; then rebaseSync="no"; fi
   if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt="-n $dcommitOpt"; fi
+  if [[ $1 =~ ^-dbg|--debug$ ]]; then dbg="yes"; fi
   shift
 done
 
@@ -102,6 +106,7 @@ setDefaultSettings()
   
   authorFile="../authors-transform.txt"
   rebaseSync="no"
+  dbg="no"
 
   gitURL="ssh://git@stash.XYZ.com:7999"
   gitRemote=origin
@@ -433,7 +438,9 @@ syncGITtoSVN()
 
     git lfs install 
 
-    read -p "Check $tryMerge before run dcommit, Press Enter...."
+    if [ "$dbg" == "yes" ]; then
+      read -p "Check $tryMerge before run dcommit, Press Enter...."
+    fi
 
     echo "****** Do DCommit to push git commits into SVN server"
     git svn dcommit  ${dcommitOpt} $tryMerge 2> "$filterLog"
@@ -453,7 +460,9 @@ syncGITtoSVN()
     ((uncommitedCnt = newcommitCnt - commitedCnt ))
     echo "There is $uncommitedCnt/$newcommitCnt uncommitted into SVN server"
 
-    read -p "Check $svnRemote before update branches.Press Enter...."
+    if [ "$dbg" == "yes" ]; then
+      read -p "Check $svnRemote before update branches.Press Enter...."
+    fi
 
     if [ "$rebaseSync" == "yes" ]; then
       echo "****** Rebase $gitBranch onto $lfsBranch"
@@ -470,7 +479,9 @@ syncGITtoSVN()
     git checkout -f "$lfsBranch"
     exitIfErr 1 echo "Cannot checkout $lfsBranch!"
 
-    read -p "Check before merge $lfsBranch, Press Enter...."
+    if [ "$dbg" == "yes" ]; then
+      read -p "Check before merge $lfsBranch, Press Enter...."
+    fi
 
     git merge --ff ${mergeOpt} \
       -m "Auto merge $lfsBranch to $gitBranch" "$tryLfsMerge"
@@ -479,14 +490,18 @@ syncGITtoSVN()
 
     git branch -f "$svnBranch" "$svnRemote"
 
-    read -p "Check before rebase $gitBranch, Press Enter...."
+    if [ "$dbg" == "yes" ]; then
+      read -p "Check before rebase $gitBranch, Press Enter...."
+    fi
 
     echo "****** Rebase commits on gitBranch that not get to dcommit"
     git rebase --onto "$lfsBranch" "$tryLfsMerge" "$gitBranch"
     exitIfErr 1 echo "Cannot rebase $gitBranch onto $lfsBranch!" ";" \
       git rebase --abort "2>" /dev/null
 
-    read -p "Check before push to stash, Press Enter...."
+    if [ "$dbg" == "yes" ]; then
+      read -p "Check before push to stash, Press Enter...."
+    fi
 
     git push -f -u $gitRemote "$lfsBranch"
     exitIfErr 1 echo "Cannot push $lfsBranch to $gitRemote"
@@ -496,7 +511,9 @@ syncGITtoSVN()
   exitIfErr 1 echo "Cannot push $gitBranch into $gitRemote"
   #TODO: Unlock $gitBranch
 
-  read -p "Check $gitBranch, $lfsBranch, $svnBranch. Press Enter...."
+  if [ "$dbg" == "yes" ]; then
+    read -p "Check $gitBranch, $lfsBranch, $svnBranch. Press Enter...."
+  fi
 
   echo "****** Remove temporary branches"
   git checkout -f "$svnBranch"
