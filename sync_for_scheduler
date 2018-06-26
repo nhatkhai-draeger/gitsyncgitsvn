@@ -1,0 +1,103 @@
+#!/bin/bash
+# This script will be called by scheduler for sync up SVN folder with git
+# repository.
+#
+
+# Specify location of sync script
+sync="/cygdrive/d/git_repositories/cached_repos/gitSyncGitSvn/sync"
+
+# Specify location of all local git repository path
+gits="/cygdrive/d/git_repositories/cached_repos"
+
+showHelp () 
+{
+  cat <<EOF
+`basename "$0"` [options] [Sync_Script_Options]
+
+This script should be called by scheduler to sync change between SVN and Git 
+repositories.
+
+Options:
+
+  -h, --help
+    Show this message.
+
+  -v, --verbose
+      Will show all the log message on output stream
+
+Sync_Script_Options:
+
+  Please see sync script for a set of avaiable options
+
+EOF
+} # end of showHelp
+
+main()
+{
+  setDefaultSettings
+
+  # Go through all arguments
+  while [[ "$1" != "" ]]; do
+    if [[ $1 =~ ^-h|--help$ ]]; then showHelp; return; fi
+    if [[ $1 =~ ^-v|--verbose$ ]]; then veb="yes"; shift; continue; fi
+    break;
+  done
+
+  # Capture the rest of argument for us in sync script
+  syncParam=( "$@" )
+
+  # Bellow is a list of git repo(es) need to be sync
+  (
+  syncASvnFolder "CockpitUSBSwitch"
+  syncASvnFolder "cricket"
+  syncASvnFolder "KiCad"
+  syncASvnFolder "ReportModule"
+  syncASvnFolder "ToolBox"
+  syncASvnFolder "USBKbdEmulator"
+  wait
+  )
+}
+
+# This function call sync script on specified git repository
+syncASvnFolder()
+{
+  # Extract function parameters
+  local repoName=$1
+
+  local repoLogDir="$logDir/$repoName"
+  local errPath="$repoLogDir/error.log"
+
+  if [ -f "$errPath" ]; then
+    echo "Detected that previous ran have error or still running. "
+    echo "Please check the error and remove $errPath file"
+    return
+  fi
+
+  echo "+++++++++ Sync $repoName ($logFile) ..."
+  cd "$gits/$repoName"
+  mkdir -p "$repoLogDir"
+
+  (
+    source "$sync" "${syncParam[*]}" 2> "$errPath" 1> "$repoLogDir/$logFile" 
+
+    if [ $? == 0 ]; then
+      rm -f "$errPath"
+      echo "+++++++++ Sync $repoName ($logFile) finished."
+    else
+      echo "+++++++++ Sync $repoName ($logFile) failed."
+    fi
+  ) &
+
+  if [ "$veb" == "yes" ]; then
+    tail -f --pid $! "$repoLogDir/$logFile" | sed -e "s/^/\[$repoName\] /" &
+  fi
+}
+
+setDefaultSettings()
+{
+  # Set default temp folder
+  logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$$.log"
+  logDir="/tmp"
+}
+
+main "$@"
