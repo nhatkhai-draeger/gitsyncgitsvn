@@ -26,24 +26,27 @@ Options:
   --svnPwd
       Specify svn passowrd.
 
-  -s, --strategy
+  -s, --strategy STRATEGY_NAME
       Specify git merge options. (Default is $mergeOpt)
 
-  -b, --branch
+  -b, --branch BRANCH_NAME
       Specify git main branch to sync with SVN. (Default is $gitBranch)
 
   -r, --rebaseSync
       Use rebase to synchronize when svn and git branch as splited. 
 
-  -nr, --no-rebaseSync
+  -m, --mergeSync
       Use merge to synchronize when svn and git branch as splited. 
       (Default)
 
   -n, --no-svnCommit
       Use to do a dry run dcommit on SVN. 
 
-  -dbg, --debug
+  -p, --prompt
       Will stop a major point and ask for check before continue.
+
+  -d, --debug
+      Will show all detail message for debugging the script.
 
 EOF
 } # end of showHelp
@@ -53,20 +56,25 @@ main ()
 setDefaultSettings
 
 # Go through all arguments
-while (( "$#" )); do
-  if [[ $1 =~ ^-h|--help$ ]]; then showHelp; myExit 0; fi
-  if [[ $1 =~ ^--init$    ]]; then init=("$2"); shift; fi
-  if [[ $1 =~ ^--svn$     ]]; then svnURL="$2"; shift; fi
-  if [[ $1 =~ ^--git$     ]]; then gitURL="$2"; shift; fi
-  if [[ $1 =~ ^--svnUser$ ]]; then svnURL="$2"; shift; fi
-  if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2"; shift; fi
-  if [[ $1 =~ ^-s|--strategy$ ]]; then mergeOpt="$2"; shift; fi
-  if [[ $1 =~ ^-b|--branch$   ]]; then gitBranch="$2"; shift; fi
-  if [[ $1 =~ ^-r|--rebaseSync$ ]]; then rebaseSync="yes"; fi
-  if [[ $1 =~ ^-nr|--no-rebaseSync$ ]]; then rebaseSync="no"; fi
-  if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt="-n $dcommitOpt"; fi
-  if [[ $1 =~ ^-dbg|--debug$ ]]; then dbg="yes"; fi
-  shift
+while [[ "$1" != "" ]]; do
+  if [[ $1 =~ ^-h|--help$         ]]; then showHelp; myExit 0;                                  fi
+
+  if [[ $1 =~ ^--init$            ]]; then init=("$2");                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svn$             ]]; then svnURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--git$             ]]; then gitURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUser$         ]]; then svnURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnPwd$          ]]; then svnPwd="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^-s|--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
+  if [[ $1 =~ ^-b|--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
+
+  if [[ $1 =~ ^-r|--rebaseSync$   ]]; then rebaseSync="yes";            shift;        continue; fi
+  if [[ $1 =~ ^-m|--mergeSync$    ]]; then rebaseSync="no";             shift;        continue; fi
+  if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt="-n $dcommitOpt"; shift;        continue; fi
+  if [[ $1 =~ ^-p|--prompt$       ]]; then prompt="yes";                shift;        continue; fi
+  if [[ $1 =~ ^-d|--debug$        ]]; then dbg="yes";                   shift;        continue; fi
+
+  echo "Unknown argument $1"
+  exit 2
 done
 
 checkSettings
@@ -106,6 +114,7 @@ setDefaultSettings()
   
   authorFile="../authors-transform.txt"
   rebaseSync="no"
+  prompt="no"
   dbg="no"
 
   gitURL="ssh://git@stash.XYZ.com:7999"
@@ -160,6 +169,7 @@ cleanUp()
   #TODO: Unlock gitBranch
   rm -rf "$tmp" 2> /dev/null
   cd "$curDir" 2> /dev/null
+  git lfs install --skip-repo &> /dev/null
 }
 
 init_fetchNewSvnFolder()
@@ -275,13 +285,13 @@ syncSVNtoGIT()
     echo "****** Put new SVN commit from ${svnSHA1:0:8} onto $lfsBranch"
 
     # Uninstall LFS to avoid the error like should be a point but..
-    git lfs uninstall 2> /dev/null
+    git lfs uninstall --local 2> /dev/null
 
     git rebase -s recursive -X theirs --keep-empty \
       --onto "$lfsBranch" $svnSHA1 $svnNewSHA1
     local error=$?
 
-    git lfs install 2> /dev/null
+    git lfs install --local 2> /dev/null
     if [ ! $error == 0 ]; then
       git rebase --abort 2> /dev/null
       >&2 echo "Cannot apply new SVN commit onto $lfsBranch!"
@@ -380,7 +390,7 @@ syncGITtoSVN()
     git branch -f "$tryMerge" "$gitBranch"
     exitIfErr 1 echo "Cannot create branch from $gitBranch"
 
-    git lfs uninstall
+    git lfs uninstall --local
 
     local oldHead
     git rebase -s recursive -X theirs \
@@ -436,9 +446,9 @@ syncGITtoSVN()
         cat "$filterLog"
     fi
 
-    git lfs install 
+    git lfs install --local
 
-    if [ "$dbg" == "yes" ]; then
+    if [ "$prompt" == "yes" ]; then
       read -p "Check $tryMerge before run dcommit, Press Enter...."
     fi
 
@@ -460,7 +470,7 @@ syncGITtoSVN()
     ((uncommitedCnt = newcommitCnt - commitedCnt ))
     echo "There is $uncommitedCnt/$newcommitCnt uncommitted into SVN server"
 
-    if [ "$dbg" == "yes" ]; then
+    if [ "$prompt" == "yes" ]; then
       read -p "Check $svnRemote before update branches.Press Enter...."
     fi
 
@@ -479,7 +489,7 @@ syncGITtoSVN()
     git checkout -f "$lfsBranch"
     exitIfErr 1 echo "Cannot checkout $lfsBranch!"
 
-    if [ "$dbg" == "yes" ]; then
+    if [ "$prompt" == "yes" ]; then
       read -p "Check before merge $lfsBranch, Press Enter...."
     fi
 
@@ -490,7 +500,7 @@ syncGITtoSVN()
 
     git branch -f "$svnBranch" "$svnRemote"
 
-    if [ "$dbg" == "yes" ]; then
+    if [ "$prompt" == "yes" ]; then
       read -p "Check before rebase $gitBranch, Press Enter...."
     fi
 
@@ -499,7 +509,7 @@ syncGITtoSVN()
     exitIfErr 1 echo "Cannot rebase $gitBranch onto $lfsBranch!" ";" \
       git rebase --abort "2>" /dev/null
 
-    if [ "$dbg" == "yes" ]; then
+    if [ "$prompt" == "yes" ]; then
       read -p "Check before push to stash, Press Enter...."
     fi
 
@@ -511,7 +521,7 @@ syncGITtoSVN()
   exitIfErr 1 echo "Cannot push $gitBranch into $gitRemote"
   #TODO: Unlock $gitBranch
 
-  if [ "$dbg" == "yes" ]; then
+  if [ "$prompt" == "yes" ]; then
     read -p "Check $gitBranch, $lfsBranch, $svnBranch. Press Enter...."
   fi
 
@@ -548,10 +558,12 @@ get_gitattributes()
   fi
 
   if [[ "$lfsFilter" == "" ]]; then
-    echo "NOTE: LFS will not be use for this repository"
+    echo "NOTE: Not use LFS for this repository"
   else
-    echo "NOTE: This repository use LFS for following files"
-    echo   "$lfsFilter"
+    echo "NOTE: This repository use LFS"
+    DBG  "LFS files are: $lfsFilter"
+    git lfs uninstall       &> /dev/null
+    git lfs install --local 2> /dev/null
   fi
 }
 
@@ -645,10 +657,11 @@ myExit()
 
 DBG()
 {
-  local line=`caller`
-  line=${line%% *}
-  echo "DEBUG:${line:0:4} $@"
-  /dev/null
+  if [ "$dbg" == "yes" ]; then
+    local line=`caller`
+    line=${line%% *}
+    echo "DEBUG:${line:0:4} $@"
+  fi
 }
 
 main "$@"
