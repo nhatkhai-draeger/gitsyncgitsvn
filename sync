@@ -109,7 +109,7 @@ setDefaultSettings()
 {
   curDir="`pwd`"
   myDir="`dirname "$0"`"
-  tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$$"
+  tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID"
   DBG "Use temp folder of $tmp"
   
   authorFile="../authors-transform.txt"

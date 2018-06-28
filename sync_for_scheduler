@@ -47,7 +47,6 @@ main()
   syncParam=( "$@" )
 
   # Bellow is a list of git repo(es) need to be sync
-  (
   syncASvnFolder "CockpitUSBSwitch"
   syncASvnFolder "cricket"
   syncASvnFolder "KiCad"
@@ -55,7 +54,6 @@ main()
   syncASvnFolder "ToolBox"
   syncASvnFolder "USBKbdEmulator"
   wait
-  )
 }
 
 # This function call sync script on specified git repository
@@ -96,7 +94,7 @@ syncASvnFolder()
 setDefaultSettings()
 {
   # Set default temp folder
-  logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$$.log"
+  logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
   logDir="/tmp"
 }
 
