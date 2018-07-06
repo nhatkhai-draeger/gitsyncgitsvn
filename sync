@@ -182,7 +182,7 @@ init_fetchNewSvnFolder()
     myExit 1
   fi
 
-  svnFolder="${1/\//-}"
+  svnFolder="${1//\//-}"
   svnRemote="svn-$svnFolder"
   svnBranch="svn/$svnFolder"
   if [[ "$lfsFilter" != "" ]]; then
