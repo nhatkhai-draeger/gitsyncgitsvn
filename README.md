@@ -4,6 +4,7 @@ Script to synchronize change from SVN to GIT and vise versa.
 ## Setup a initial git repository
 ```
 SYNC_GIT_PATH>git init
+SYNC_GIT_PATH>git remote add origin ssh://git@stash.xyz.com:7999/XYZ.git
 SYNC_GIT_PATH>git checkout --orphan master
 SYNC_GIT_PATH>git lfs track "*.exe"
 # Edit .gitattributes file to have all the binary file use LFS
