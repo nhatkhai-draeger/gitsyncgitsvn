@@ -117,18 +117,18 @@ setDefaultSettings()
   prompt="no"
   dbg="no"
 
-  gitURL="ssh://git@stash.XYZ.com:7999"
+  svnURL="http://xyz:8080/svn/projects"
+  svnUser="xyz"
+  svnPwd="xyz!"
+  dcommitOpt="--rmdir"
+
+  gitURL="ssh://git@stash.XYZ.com:7999/~${svnUser}"
   gitRemote=origin
   gitBranch="master"
   repoDir="$curDir"
   mergeOpt="-s recursive -Xours -Xpatience \
     -Xignore-cr-at-eol -Xignore-space-at-eol"
 
-
-  svnURL="http://ZYX846:8080/svn/projects"
-  svnUser="ZYX"
-  svnPwd="ZYX"
-  dcommitOpt="--rmdir"
 
   init=()
 } # End of setDefaultSettings
@@ -196,6 +196,12 @@ init_fetchNewSvnFolder()
      [[ "$curBranch" == "$svnBranch" ]]; then
     git checkout -f "$gitBranch"
     exitIfErr 1 echo "Cannot switch to $gitBranch branch"
+  fi
+
+  git config --local --get remote.${gitRemote}.url
+  if [[ $? != 0 ]]; then
+    echo "****** Link ${gitRemote} to ${gitURL}/${svnFolder}"
+    git remote add ${gitRemote} "${gitURL}/${svnFolder}"
   fi
 
   echo "****** Create a svn remote under $svnRemote branch"
