@@ -53,6 +53,7 @@ main()
   syncASvnFolder "ReportModule"
   syncASvnFolder "ToolBox"
   syncASvnFolder "USBKbdEmulator"
+  syncASvnFolder "storm"
   wait
 }
 
@@ -76,7 +77,7 @@ syncASvnFolder()
   mkdir -p "$repoLogDir"
 
   (
-    source "$sync" "${syncParam[*]}" 2> "$errPath" 1> "$repoLogDir/$logFile" 
+    source "$sync" ${syncParam[*]} 2> "$errPath" 1> "$repoLogDir/$logFile" 
 
     if [ $? == 0 ]; then
       rm -f "$errPath"

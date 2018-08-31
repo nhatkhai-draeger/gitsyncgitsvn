@@ -62,7 +62,7 @@ while [[ "$1" != "" ]]; do
   if [[ $1 =~ ^--init$            ]]; then init=("$2");                 shift; shift; continue; fi
   if [[ $1 =~ ^--svn$             ]]; then svnURL="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^--git$             ]]; then gitURL="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnUser$         ]]; then svnURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUser$         ]]; then svnUser="$2";                shift; shift; continue; fi
   if [[ $1 =~ ^--svnPwd$          ]]; then svnPwd="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^-s|--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
   if [[ $1 =~ ^-b|--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
@@ -118,11 +118,9 @@ setDefaultSettings()
   dbg="no"
 
   svnURL="http://xyz:8080/svn/projects"
-  svnUser="xyz"
-  svnPwd="xyz!"
   dcommitOpt="--rmdir"
 
-  gitURL="ssh://git@stash.XYZ.com:7999/~${svnUser}"
+  gitURL="ssh://git@stash.xyz.com:7999/ABC/XYZ.git"
   gitRemote=origin
   gitBranch="master"
   repoDir="$curDir"
@@ -146,6 +144,18 @@ checkSettings()
     >&2 echo "****** Going to extract from SVN log."
     getSvnCommiters
     myExit 1
+  fi
+
+  # check svn account
+  if [ "$svnPwd" != "" ]; then
+    svn info "$svnURL" --username "$svnUser" --password "$svnPwd" > /dev/null
+    exitIfErr 1 echo "Cannot access svn with specified password!"
+  elif [ "$svnUser" != "" ]; then
+    echo $svnPwd | svn info "$svnURL" --username "$svnUser" > /dev/null
+    exitIfErr 1 echo "Cannot access svn with specified user!"
+  else
+    echo $svnPwd | svn info "$svnURL" > /dev/null
+    exitIfErr 1 echo "Cannot access to svn, please specify user and password!"
   fi
 
   cd "$repoDir"
@@ -220,9 +230,9 @@ init_fetchNewSvnFolder()
 
   git reset --hard 2> /dev/null
 
-  git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
+  echo $svnPwd | git svn fetch -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 \
-    echo "Cannot fetch commits from SVN ($svnURL)! due to;" ";" \
+    echo "Cannot fetch commits from SVN \\($svnURL\\)! due to;" ";" \
     cat "$filterLog"
 
   git checkout -f "$svnBranch"
@@ -275,7 +285,8 @@ syncSVNtoGIT()
   git reset --hard
 
   #TODO: Lock SVN Folder
-  git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
+  echo $svnPwd | git svn fetch \
+    -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 echo "Cannot fetch commits from SVN! due to:" ";" \
     cat "$filterLog"
   local svnNewSHA1=`getSHA1 "$svnRemote"`
@@ -459,7 +470,8 @@ syncGITtoSVN()
     fi
 
     echo "****** Do DCommit to push git commits into SVN server"
-    git svn dcommit  ${dcommitOpt} $tryMerge 2> "$filterLog"
+    echo $svnPwd | git svn dcommit \
+      ${dcommitOpt} $tryMerge 2> "$filterLog"
     if [ $? != 0 ]; then
       echo ""
       echo "WARNING: DCommit failed with following message:"
@@ -604,9 +616,7 @@ get_svnInfo()
 
 getSvnCommiters()
 {
-  svn log -q "$svnURL" \
-    --username "$svnUser" \
-    --password "$svnPwd" > "$tmp/svn_log" 2> "$tmp/error"
+  echo $svnPwd | svn log -q "$svnURL" > "$tmp/svn_log" 2> "$tmp/error"
   if [[ $? != 0 ]]; then 
     >&2 echo "Cannot query SVN log due to following error:"
     >&2 cat "$tmp/error"
