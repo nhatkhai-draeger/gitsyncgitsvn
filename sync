@@ -430,6 +430,7 @@ syncGITtoSVN()
       # Conflict "UD" - " unmerged, Deleted by theirs (master)
       # * A file added from SVN but remove by master
       git status --porcelain > "$tmp/gitStatus"
+      cat "$tmp/gitStatus"
       sed -ne "s/^UD \(.*\)$/\1/p" "$tmp/gitStatus" \
         | while read f; do git rm "$f"; done
 
@@ -441,14 +442,29 @@ syncGITtoSVN()
       sed -ne "s/^DU \(\.git.*\)$/\1/p" "$tmp/gitStatus" \
         | while read f; do git add "$f"; done
 
+      # Handling submodule issues
+      sed -ne "s/^M\|UU \(.*\)$/\1/p" "$tmp/gitStatus" \
+        | while read f; do \
+          if grep -i "= *$f *$" .gitmodules; then \
+           git reset -- "$f"; \
+          fi; done
+
+      # Code use to debug this process
+      #read -p "Check...."
+
       oldHead=$newHead
       git rebase --continue 2>> "$tmp/rebase"
 
     done;
 
     if [[ "$lfsFilter" != "" ]]; then
-      echo "****** Remove LFS settings"
+      echo "****** Remove submodules, and LFS settings"
       git filter-branch -f --tree-filter '
+      if [ -f .gitmodules ]; then
+        sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
+          | while read f; do git rm -rf -- "$f"; done
+        rm -f .gitmodules
+      fi
       rm -f .gitattributes
       git ls-files | while read f; do
         while head -2 "$f" | grep -q "^oid sha256"; do
@@ -458,8 +474,19 @@ syncGITtoSVN()
           >&2 echo remove LFS on "$f"
         done
       done
-      ' -- "$svnRemote".."$tryMerge" 2> "$filterLog"
+      ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
       exitIfErr 1 echo "Cannot remove LFS settings from git commits!" ";" \
+        cat "$filterLog"
+    else
+      echo "****** Remove submodule settings"
+      git filter-branch -f --tree-filter '
+      if [ -f .gitmodules ]; then
+        sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
+          | while read f; do git rm -rf -- "$f"; done
+        rm -f .gitmodules
+      fi
+      ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
+      exitIfErr 1 echo "Cannot remove submodule settings from git commits!" ";" \
         cat "$filterLog"
     fi
 
@@ -472,12 +499,17 @@ syncGITtoSVN()
     echo "****** Do DCommit to push git commits into SVN server"
     echo $svnPwd | git svn dcommit \
       ${dcommitOpt} $tryMerge 2> "$filterLog"
-    if [ $? != 0 ]; then
-      echo ""
-      echo "WARNING: DCommit failed with following message:"
-      cat "$filterLog"
-      echo ""
-    fi
+    exitIfErr 1 echo "dcommit failed with following message:" ";" \
+      cat "$filterLog" ";" \
+      git reset --hard "2>" /dev/null
+    #This sometime is dangerous where the error from the git system
+    #And may cause mis-calculation for readjustment code later on
+    #if [ $? != 0 ]; then
+    #  echo ""
+    #  echo "WARNING: DCommit failed with following message:"
+    #  cat "$filterLog"
+    #  echo ""
+    #fi
 
     #TODO: Unlock SVN Folder
     git reset --hard
@@ -579,8 +611,6 @@ get_gitattributes()
 
   if [[ "$lfsFilter" == "" ]]; then
     echo "NOTE: Not use LFS for this repository"
-  else
-    echo "NOTE: This repository use LFS"
     DBG  "LFS files are: $lfsFilter"
     git lfs uninstall       &> /dev/null
     git lfs install --local 2> /dev/null
