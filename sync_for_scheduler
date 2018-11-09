@@ -4,10 +4,11 @@
 #
 
 # Specify location of sync script
-sync="/cygdrive/d/git_repositories/cached_repos/gitSyncGitSvn/sync"
+scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
+sync="${scriptDir}/sync"
 
 # Specify location of all local git repository path
-gits="/cygdrive/d/git_repositories/cached_repos"
+gits="$(dirname "${scriptDir}")/cached_repos"
 
 showHelp () 
 {
@@ -26,10 +27,8 @@ Options:
       Will show all the log message on output stream
 
 Sync_Script_Options:
-
-  Please see sync script for a set of avaiable options
-
 EOF
+"$sync" -h
 } # end of showHelp
 
 main()
@@ -46,15 +45,28 @@ main()
   # Capture the rest of argument for us in sync script
   syncParam=( "$@" )
 
-  # Bellow is a list of git repo(es) need to be sync
-  syncASvnFolder "CockpitUSBSwitch"
-  syncASvnFolder "cricket"
-  syncASvnFolder "KiCad"
-  syncASvnFolder "ReportModule"
-  syncASvnFolder "ToolBox"
-  syncASvnFolder "USBKbdEmulator"
-  syncASvnFolder "storm"
+  # Sync all repository folders in $gits
+  echo "Sync all repositories in $gits"
+  ls "$gits" -1 > "$respoNames"
+  while read f; do 
+    if [ -d "$gits/$f" ]; then 
+      syncASvnFolder "$f" 
+    fi 
+  done < "$respoNames"
+  rm -f "$respoNames"
+
+  # Wait for all the sync process finished
   wait
+
+  # Check weather any error occurred
+  ls -1 "$logDir"/*/error.log &> /dev/null
+  if [ $? == 2 ]; then
+    echo "DONE: Everything when fine"
+    exit 0
+  else
+    echo "ERROR: One or more repositories failed to sync"
+    exit 1
+  fi
 }
 
 # This function call sync script on specified git repository
@@ -97,6 +109,7 @@ setDefaultSettings()
   # Set default temp folder
   logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
   logDir="/tmp"
+  respoNames="/tmp/respoNames_$BASHPID"
 }
 
 main "$@"
