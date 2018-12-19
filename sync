@@ -730,7 +730,7 @@ exitIfErr()
     local error=$1
     local line=`caller`
     line=${line%% *}
-    >&2 echo "ERROR  :${line:0:4} $2"
+    >&2 echo `date +%H:%M:%S` "ERROR  :${line:0:4} $2"
 
     shift
     shift
@@ -750,66 +750,37 @@ DBG()
   if [ "$dbg" != "yes" ]; then return; fi
   local line=`caller`
   line=${line%% *}
-  echo "DEBUG:${line:0:4} $@"
+  echo `date +%H:%M:%S` "DEBUG:${line:0:4} $@"
 }
 
 INFO()
 {
   local line=`caller`
   line=${line%% *}
-  echo "INFO :${line:0:4} $@"
+  echo `date +%H:%M:%S` "INFO :${line:0:4} $@"
 }
 
 NOTE()
 {
   local line=`caller`
   line=${line%% *}
-  echo "NOTE :${line:0:4} $@"
+  echo `date +%H:%M:%S` "NOTE :${line:0:4} $@"
 }
 
 WARN()
 {
   local line=`caller`
   line=${line%% *}
-  echo "WARN :${line:0:4} $@"
+  echo `date +%H:%M:%S` "WARN :${line:0:4} $@"
 }
 
 ERROR()
 {
   local line=`caller`
   line=${line%% *}
-  >&2 echo "ERROR:${line:0:4} $@"
+  >&2 echo `date +%H:%M:%S` "ERROR:${line:0:4} $@"
 }
 
+echo "Started on `date`"
 main "$@"
 
-INFO()
-{
-  local line=`caller`
-  line=${line%% *}
-  echo "INFO :${line:0:4} $@"
-}
-
-NOTE()
-{
-  local line=`caller`
-  line=${line%% *}
-  echo "NOTE :${line:0:4} $@"
-}
-
-WARN()
-{
-  local line=`caller`
-  line=${line%% *}
-  echo "WARN :${line:0:4} $@"
-}
-
-ERROR()
-{
-  local line=`caller`
-  line=${line%% *}
-  >&2 echo "ERROR:${line:0:4} $@"
-}
-
-main "$@"
-"
