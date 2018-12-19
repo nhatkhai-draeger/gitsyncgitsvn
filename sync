@@ -251,7 +251,7 @@ init_fetchNewSvnFolder()
       "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
       cat "$filterLog"
 
-    git lfs migrate import --include="$lfsFilter" "$lfsBranch"
+    git lfs migrate import --fixup "$lfsBranch"
     exitIfErr 1 "Failed to migrate to LFS"
 
     git update-ref -d "refs/original/refs/heads/$lfsBranch"
@@ -308,17 +308,23 @@ syncSVNtoGIT()
   if [[ "$lfsFilter" != "" ]]; then
     INFO "Apply LFS setting on new SVN commits on $svnRemote"
     printf "$lfsFilter" > ${tmp}/.lfsFilter
-    git filter-branch --prune-empty -f --tree-filter '
+    git filter-branch --prune-empty -f --index-filter '
       cp "'"${tmp}"'/.gitattributes" .gitattributes 
       git diff --cached --name-only --diff-filter=ACR \
-        | perl -lne "print if -B" \
         | while read f; do
         git check-attr filter "$f" | grep "filter: unspecified$" > /dev/null
-        if [ $? == 0 ]; then
-          git lfs track "$f"
-          printf ",$f">> '"${tmp}"'/.lfsFilter
-        fi
+        if [ $? != 0 ]; then continue; fi
+
+        git checkout-index -f -- "$f" 
+        echo "$f" | perl -lne "exit 1 if -B"
+        if [ $? == 0 ]; then continue; fi
+
+        printf "\r"
+        git lfs track "$f"
+        printf ",$f">> '"${tmp}"'/.lfsFilter
       done
+
+      git add .gitattributes
       cp .gitattributes "'"${tmp}"'/.gitattributes" 
       ' -- "${svnBranch}".."${tryLfsMerge}" 2> "$filterLog"
     exitIfErr 1 "Cannot apply LFS setting on new SVN commits!" ";" \
@@ -328,7 +334,7 @@ syncSVNtoGIT()
     DBG "Current LFS Filter: $lfsFilter"
 
     if [ "$prompt" == "yes" ]; then
-      read -p "Check if any file still not converted into LFS...."
+      read -p "Check if .gitattributes up-date correctly for new LFS files..."
     fi
 
     # It is often filter-branch along is not enough to convert file into
@@ -336,7 +342,7 @@ syncSVNtoGIT()
     # into LFS
     
     git lfs migrate import  \
-      --include="$lfsFilter" \
+      --fixup \
       --exclude-ref="${svnBranch}" \
       --include-ref="${tryLfsMerge}"
     exitIfErr 1 "Failed to run lfs migrate on new SVN commits"
@@ -776,7 +782,6 @@ ERROR()
 }
 
 main "$@"
-}
 
 INFO()
 {
@@ -807,3 +812,4 @@ ERROR()
 }
 
 main "$@"
+"
