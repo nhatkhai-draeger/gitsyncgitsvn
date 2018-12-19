@@ -230,9 +230,8 @@ init_fetchNewSvnFolder()
   git reset --hard 2> /dev/null
 
   echo $svnPwd | git svn fetch -A "$authorFile" 2> "$filterLog"
-  exitIfErr 1 \
-    "Cannot fetch commits from SVN \\($svnURL\\)! due to;" ";" \
-    cat "$filterLog"
+  exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
+    cat "'$filterLog'"'
 
   git checkout -f "$svnBranch"
   exitIfErr 1 "Cannot switch to $svnBranch"
@@ -247,9 +246,8 @@ init_fetchNewSvnFolder()
     git filter-branch --prune-empty -f --tree-filter " \
       cp \"${tmp}/.gitattributes\" .gitattributes;     \
       " -- "${lfsBranch}" 2> "$filterLog"
-    exitIfErr 1 \
-      "Failed to apply LFS settings to $lfsBranch! due to:" ";" \
-      cat "$filterLog"
+    exitIfErr 1 "Failed to apply LFS settings to $lfsBranch! due to:" '
+      cat "'$filterLog'"'
 
     git lfs migrate import --fixup "$lfsBranch"
     exitIfErr 1 "Failed to migrate to LFS"
@@ -288,12 +286,16 @@ syncSVNtoGIT()
   #TODO: Lock SVN Folder
   echo $svnPwd | git svn fetch \
     -A "$authorFile" 2> "$filterLog"
-  exitIfErr 1 "Cannot fetch commits from SVN! due to:" ";" \
-    cat "$filterLog"
+  exitIfErr 1 "Cannot fetch commits from SVN! due to:" '
+    cat "'$filterLog'"'
   local svnNewSHA1=`getSHA1 "$svnRemote"`
   DBG "New SHA-1 for $svnRemote: $svnNewSHA1"
 
   if [[ $svnSHA1 == $svnNewSHA1 ]]; then
+    INFO "Make sure $lfsBranch sync with the server"
+    git push -f -u $gitRemote "$lfsBranch"
+    exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
+
     INFO "No new SVN commits to work on."
     return
   fi
@@ -306,7 +308,9 @@ syncSVNtoGIT()
   exitIfErr 1 "Cannot create a temporary branch $tryLfsMerge"
 
   if [[ "$lfsFilter" != "" ]]; then
-    INFO "Apply LFS setting on new SVN commits on $svnRemote"
+    INFO "** Apply LFS setting on new SVN commits on $svnRemote"
+
+    INFO "Repair, and find new binary file for apply LFS"
     printf "$lfsFilter" > ${tmp}/.lfsFilter
     git filter-branch --prune-empty -f --index-filter '
       cp "'"${tmp}"'/.gitattributes" .gitattributes 
@@ -327,8 +331,8 @@ syncSVNtoGIT()
       git add .gitattributes
       cp .gitattributes "'"${tmp}"'/.gitattributes" 
       ' -- "${svnBranch}".."${tryLfsMerge}" 2> "$filterLog"
-    exitIfErr 1 "Cannot apply LFS setting on new SVN commits!" ";" \
-      cat "$filterLog"
+    exitIfErr 1 "Cannot apply LFS setting on new SVN commits!" '
+      cat "'$filterLog'"'
 
     lfsFilter=`cat "${tmp}/.lfsFilter"`
     DBG "Current LFS Filter: $lfsFilter"
@@ -337,10 +341,10 @@ syncSVNtoGIT()
       read -p "Check if .gitattributes up-date correctly for new LFS files..."
     fi
 
+    INFO "Migrate SVN commit to LFS"
     # It is often filter-branch along is not enough to convert file into
     # LFS - seem like file that modified are the once did not converted
     # into LFS
-    
     git lfs migrate import  \
       --fixup \
       --exclude-ref="${svnBranch}" \
@@ -352,28 +356,26 @@ syncSVNtoGIT()
     fi
   fi
 
+  INFO "Now rebase onto $lfsBranch"
   git rebase -s recursive -X theirs --keep-empty \
     --onto "$lfsBranch" "$svnBranch" "$tryLfsMerge"
-  if [ ! $? == 0 ]; then
-    if [ "$prompt" == "yes" ]; then
-      read -p "Check why rebase is failed...."
-    fi
-    git rebase --abort 2> /dev/null
-    ERROR "Cannot apply new SVN commit onto $lfsBranch!"
-    myExit 1
-  fi
+  exitIfErr 1 "Cannot apply new SVN commit onto $lfsBranch!" '
+    if [ "'$prompt'" == "yes" ]; then 
+       read -p "Check why rebase is failed..."
+    fi 
+    git rebase --abort 2>/dev/null'
 
   git branch -f "$lfsBranch"
   exitIfErr 1 "Cannot move $lfsBranch to new rebase tip!"
   local lfsNewSHA1=`getSHA1 "$lfsBranch"`
   DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
 
-  git branch -D "${tryLfsMerge}" 2> /dev/null
-
-  INFO "****** Go back to $svnBranch after rebase"
+  INFO "*** Go back to $svnBranch after rebase"
   git checkout -B "$svnBranch" "$svnRemote"
   exitIfErr 1 "Cannot switch and move $svnBranch to $svnRemote"
   git reset --hard
+
+  git branch -D "${tryLfsMerge}" 2> /dev/null
 
   if [ "$prompt" == "yes" ]; then
     read -p "Check before push result into server...."
@@ -381,10 +383,6 @@ syncSVNtoGIT()
 
   git push -f -u $gitRemote "$lfsBranch"
   exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
-
-  if [ "$prompt" == "yes" ]; then
-    read -p "TODO Check...."
-  fi
 }
 
 syncGITtoSVN()
@@ -513,8 +511,8 @@ syncGITtoSVN()
         done
       done
       ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
-      exitIfErr 1 "Cannot remove LFS settings from git commits!" ";" \
-        cat "$filterLog"
+      exitIfErr 1 "Cannot remove LFS settings from git commits!" '
+        cat "'$filterLog'"'
     else
       INFO "****** Remove submodule settings"
       git filter-branch -f --tree-filter '
@@ -524,8 +522,8 @@ syncGITtoSVN()
         rm -f .gitmodules
       fi
       ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
-      exitIfErr 1 "Cannot remove submodule settings from git commits!" ";" \
-        cat "$filterLog"
+      exitIfErr 1 "Cannot remove submodule settings from git commits!" '
+        cat "'$filterLog'"'
     fi
 
     git lfs install --local
@@ -537,9 +535,9 @@ syncGITtoSVN()
     INFO "****** Do DCommit to push git commits into SVN server"
     echo $svnPwd | git svn dcommit \
       ${dcommitOpt} $tryMerge 2> "$filterLog"
-    exitIfErr 1 "dcommit failed with following message:" ";" \
-      cat "$filterLog" ";" \
-      git reset --hard "2>" /dev/null
+    exitIfErr 1 "dcommit failed with following message:" '
+      cat "'$filterLog'"
+      git reset --hard 2>/dev/null'
 
     #This sometime is dangerous where the error from the git system
     #And may cause mis-calculation for readjustment code later on
@@ -566,8 +564,8 @@ syncGITtoSVN()
     if [ "$rebaseSync" == "yes" ]; then
       INFO "****** Rebase $gitBranch onto $lfsBranch"
       git rebase ${mergeOpt} --onto "$lfsBranch" $mergeBaseSHA1 "$gitBranch"
-      exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" ";" \
-        git rebase --abort "2>" /dev/null
+      exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
+        git rebase --abort 2>/dev/null'
     fi
 
     # Re-estimate commits that correct committed into SVN on gitBranch
@@ -584,8 +582,9 @@ syncGITtoSVN()
 
     git merge --ff ${mergeOpt} \
       -m "Auto merge $lfsBranch to $gitBranch" "$tryLfsMerge"
-    exitIfErr 1 "Cannot merge $lfsBranch to $gitBranch!" ";" \
-      git merge --abort "2>" /dev/null
+    exitIfErr 1 "Cannot merge $lfsBranch to $gitBranch!" '
+      git merge --abort 2>/dev/null'
+
 
     git branch -f "$svnBranch" "$svnRemote"
 
@@ -595,8 +594,8 @@ syncGITtoSVN()
 
     INFO "****** Rebase commits on gitBranch that not get to dcommit"
     git rebase --onto "$lfsBranch" "$tryLfsMerge" "$gitBranch"
-    exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" ";" \
-      git rebase --abort "2>" /dev/null
+    exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
+      git rebase --abort 2>/dev/null'
 
     if [ "$prompt" == "yes" ]; then
       read -p "Check before push to stash, Press Enter...."
@@ -783,4 +782,4 @@ ERROR()
 
 echo "Started on `date`"
 main "$@"
-
+"
