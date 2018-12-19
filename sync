@@ -243,9 +243,11 @@ init_fetchNewSvnFolder()
     exitIfErr 1 "Cannot create $lfsBranch branch"
 
     INFO "****** Rebase SVN commits with lfs settings"
-    git filter-branch --prune-empty -f --tree-filter " \
-      cp \"${tmp}/.gitattributes\" .gitattributes;     \
-      " -- "${lfsBranch}" 2> "$filterLog"
+    WARN "TODO - This index-filter code had not tested"
+    git filter-branch --prune-empty -f --index-filter '
+      cp "'${tmp}/.gitattributes'" .gitattributes
+      git add .gitattributes
+      ' -- "${lfsBranch}" 2> "$filterLog"
     exitIfErr 1 "Failed to apply LFS settings to $lfsBranch! due to:" '
       cat "'$filterLog'"'
 
@@ -782,4 +784,3 @@ ERROR()
 
 echo "Started on `date`"
 main "$@"
-"
