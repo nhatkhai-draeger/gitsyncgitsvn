@@ -85,10 +85,10 @@ syncASvnFolder()
   fi
 
   echo "+++++++++ Sync $repoName ($logFile) ..."
-  cd "$gits/$repoName"
   mkdir -p "$repoLogDir"
 
   (
+    cd "$gits/$repoName"
     source "$sync" ${syncParam[*]} 2> "$errPath" 1> "$repoLogDir/$logFile" 
 
     if [ $? == 0 ]; then

@@ -178,7 +178,6 @@ cleanUp()
   #TODO: Unlock gitBranch
   rm -rf "$tmp" 2> /dev/null
   cd "$curDir" 2> /dev/null
-  #git lfs install --skip-repo &> /dev/null
 }
 
 init_fetchNewSvnFolder()
@@ -229,7 +228,8 @@ init_fetchNewSvnFolder()
 
   git reset --hard 2> /dev/null
 
-  echo $svnPwd | git svn fetch -A "$authorFile" 2> "$filterLog"
+  echo $svnPwd | git svn fetch --username "$svnUser" \
+    -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
     cat "'$filterLog'"'
 
@@ -286,7 +286,7 @@ syncSVNtoGIT()
   git reset --hard
 
   #TODO: Lock SVN Folder
-  echo $svnPwd | git svn fetch \
+  echo $svnPwd | git svn fetch --username "$svnUser" \
     -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 "Cannot fetch commits from SVN! due to:" '
     cat "'$filterLog'"'
@@ -470,20 +470,31 @@ syncGITtoSVN()
       sed -ne "s/^UD \(.*\)$/\1/p" "$tmp/gitStatus" \
         | while read f; do git rm "$f"; done
 
+      # Handling submodule issues
+      #
+      # Obtain submodule files of any from master
+      git show REBASE_HEAD:.gitmodules > "$tmp/.gitmodules"
+      if [ $? == 0 ]; then
+        sed -ne "s/^\(M \|UU\|DU\) \(.*\)$/\2/p" "$tmp/gitStatus" \
+          | while read f; do
+          if grep -i "= *$f *$" "$tmp/.gitmodules"; then
+            git reset -- "$f";
+          fi; 
+        done
+      fi
 
       # Conflict "DU" - " deleted by ours, unmerged
       # * A file may had been exist only in master all along, but now
       # changed - which required to add into SVN
       # * A file added from master, but had been removed by SVN
+      #
+      # * Exclude all .git* files, because it not part of SVN
       sed -ne "s/^DU \(\.git.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do git add "$f"; done
+        | while read f; do git reset -- "$f"; done
 
-      # Handling submodule issues
-      sed -ne "s/^M\|UU \(.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do \
-          if grep -i "= *$f *$" .gitmodules; then \
-           git reset -- "$f"; \
-          fi; done
+      git status --porcelain > "$tmp/gitStatus"
+      sed -ne "s/^DU \(.*\)$/\1/p" "$tmp/gitStatus" \
+        | while read f; do git add -- "$f"; done
 
       # Code use to debug this process
       if [ "$prompt" == "yes" ]; then
@@ -535,7 +546,7 @@ syncGITtoSVN()
     fi
 
     INFO "****** Do DCommit to push git commits into SVN server"
-    echo $svnPwd | git svn dcommit \
+    echo $svnPwd | git svn dcommit --username "$svnUser" \
       ${dcommitOpt} $tryMerge 2> "$filterLog"
     exitIfErr 1 "dcommit failed with following message:" '
       cat "'$filterLog'"
@@ -650,8 +661,8 @@ get_gitattributes()
     NOTE "Not use LFS for this repository"
   else
     DBG  "LFS files are: $lfsFilter"
-    git lfs uninstall       &> /dev/null
-    git lfs install --local 2> /dev/null
+    #git lfs uninstall       &> /dev/null
+    #git lfs install --local 2> /dev/null
   fi
 }
 
