@@ -316,7 +316,7 @@ syncSVNtoGIT()
     printf "$lfsFilter" > ${tmp}/.lfsFilter
     git filter-branch --prune-empty -f --index-filter '
       cp "'"${tmp}"'/.gitattributes" .gitattributes 
-      git diff --cached --name-only --diff-filter=ACR \
+      git diff "'${svnBranch}'" --cached --name-only --diff-filter=ACR \
         | while read f; do
         git check-attr filter "$f" | grep "filter: unspecified$" > /dev/null
         if [ $? != 0 ]; then continue; fi
@@ -508,14 +508,19 @@ syncGITtoSVN()
 
     if [[ "$lfsFilter" != "" ]]; then
       INFO "****** Remove submodules, and LFS settings"
-      git filter-branch -f --tree-filter '
-      if [ -f .gitmodules ]; then
+      git filter-branch -f --index-filter '
+      git checkout-index -f -- .gitmodules
+      if [ $? == 0 ]; then
         sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
           | while read f; do git rm -rf -- "$f"; done
-        rm -f .gitmodules
+        git rm -f .gitmodules
       fi
-      rm -f .gitattributes
-      git ls-files | while read f; do
+      git rm -f .gitattributes
+      git diff "'$svnRemote'" --cached --name-only --diff-filter=d \
+        | while read f; do
+        printf "\n$f\n"
+        git checkout-index -f -- "$f"
+        head -2 "$f"
         while head -2 "$f" | grep -q "^oid sha256"; do
           ref=$(cat "$f")
           echo -n "$ref" | git lfs smudge > "$f"
@@ -528,12 +533,14 @@ syncGITtoSVN()
         cat "'$filterLog'"'
     else
       INFO "****** Remove submodule settings"
-      git filter-branch -f --tree-filter '
-      if [ -f .gitmodules ]; then
+      git filter-branch -f --index-filter '
+      git checkout-index -f -- .gitmodules
+      if [ $? == 0 ]; then
         sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
           | while read f; do git rm -rf -- "$f"; done
-        rm -f .gitmodules
+        git rm -f .gitmodules
       fi
+      git rm -f .gitattributes
       ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
       exitIfErr 1 "Cannot remove submodule settings from git commits!" '
         cat "'$filterLog'"'
