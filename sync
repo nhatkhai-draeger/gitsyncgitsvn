@@ -78,6 +78,8 @@ while [[ "$1" != "" ]]; do
 done
 
 checkSettings
+DBG "Use temp folder of $tmp"
+
 get_gitattributes
 init_fetchNewSvnFolder "${init[@]}"
 
@@ -109,7 +111,6 @@ setDefaultSettings()
   curDir="`pwd`"
   myDir="`dirname "$0"`"
   tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID"
-  DBG "Use temp folder of $tmp"
   
   authorFile="../authors-transform.txt"
   rebaseSync="no"
@@ -516,21 +517,32 @@ syncGITtoSVN()
         git rm -f .gitmodules
       fi
       git rm -f .gitattributes
+
       git diff "'$svnRemote'" --cached --name-only --diff-filter=d \
         | while read f; do
-        printf "\n$f\n"
         git checkout-index -f -- "$f"
-        head -2 "$f"
-        while head -2 "$f" | grep -q "^oid sha256"; do
-          ref=$(cat "$f")
-          echo -n "$ref" | git lfs smudge > "$f"
+        head -2 "$f" | sed -ne "s/^oid sha256:\([^ ]*\)/\1/p" \
+          | while read ref; do
+          ref="'$tmp'/lfs-$ref"
+          if [ ! -f "$ref" ]; then
+            cat "$f" | git lfs smudge > "$ref"
+            if [ $? != 0 ]; then 
+              rm -f "$ref"
+              break 
+            fi
+            echo "  Remove LFS on $f"
+          fi
+          cp -f "$ref" "$f"
           git add "$f"
-          >&2 echo remove LFS on "$f"
+          break
         done
       done
       ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
       exitIfErr 1 "Cannot remove LFS settings from git commits!" '
-        cat "'$filterLog'"'
+        cat "'$filterLog'"
+        rm -f "'$tmp'/"lfs-[0-9a-fA-F]*
+        '
+      rm -f "$tmp/"lfs-[0-9a-fA-F]*
     else
       INFO "****** Remove submodule settings"
       git filter-branch -f --index-filter '
@@ -572,8 +584,8 @@ syncGITtoSVN()
     git reset --hard
 
     INFO "****** Figure what were committed into SVN and update the states"
-    local newcommitCnt=`git log --oneline "$svnBranch"..$tryMerge | wc -l`
-    local commitedCnt=`git log --oneline "$svnBranch"..$svnRemote | wc -l`
+    local newcommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
+    local  commitedCnt=`git rev-list --count "$svnBranch"..$svnRemote`
     ((uncommitedCnt = newcommitCnt - commitedCnt ))
     INFO "There is $uncommitedCnt/$newcommitCnt uncommitted into SVN server"
 
@@ -669,7 +681,7 @@ get_gitattributes()
   else
     DBG  "LFS files are: $lfsFilter"
     #git lfs uninstall       &> /dev/null
-    #git lfs install --local 2> /dev/null
+    git lfs install --local 2> /dev/null
   fi
 }
 
