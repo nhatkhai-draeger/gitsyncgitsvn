@@ -26,6 +26,10 @@ Options:
   -v, --verbose
       Will show all the log message on output stream
 
+  -g, --gitdir
+      Specifiy where all the synch git repositories location. 
+      (Default $gits)
+
 Sync_Script_Options:
 EOF
 "$sync" -h
@@ -39,6 +43,7 @@ main()
   while [[ "$1" != "" ]]; do
     if [[ $1 =~ ^-h|--help$ ]]; then showHelp; return; fi
     if [[ $1 =~ ^-v|--verbose$ ]]; then veb="yes"; shift; continue; fi
+    if [[ $1 =~ ^-g|--gitdir$ ]]; then gits=$2; shift; shift; continue; fi
     break;
   done
 
@@ -57,14 +62,17 @@ main()
 
   # Wait for all the sync process finished
   wait
+  sleep 1
 
   # Check weather any error occurred
-  ls -1 "$logDir"/*/error.log &> /dev/null
+  ls -1 "$logDir"/*/error.log &> "$logDir/tmp_$logFile"
   if [ $? == 2 ]; then
     echo "DONE: Everything when fine"
     exit 0
   else
-    echo "ERROR: One or more repositories failed to sync"
+    echo "ERROR: One or more following repositories failed to sync:"
+    cat "$logDir/tmp_$logFile"
+    rm -f "$logDir/tmp_$logFile"
     exit 1
   fi
 }
@@ -90,13 +98,16 @@ syncASvnFolder()
   (
     cd "$gits/$repoName"
     source "$sync" ${syncParam[*]} 2> "$errPath" 1> "$repoLogDir/$logFile" 
+    local error=$?
+    cat "$errPath" >> "$repoLogDir/$logFile"
 
-    if [ $? == 0 ]; then
+    if [ $error == 0 ]; then
       rm -f "$errPath"
       echo "+++++++++ Sync $repoName ($logFile) finished."
     else
       echo "+++++++++ Sync $repoName ($logFile) failed."
     fi
+    sleep 0.5
   ) &
 
   if [ "$veb" == "yes" ]; then

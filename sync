@@ -117,21 +117,21 @@ setDefaultSettings()
   prompt="no"
   dbg="no"
 
-  svnURL="http://xyz:8080/svn/projects"
+  svnURL=
   dcommitOpt="--rmdir"
 
-  local temp=`git config --local --get svn-remote.svn.url`
+  local temp=`git config --local --get svn-remote.svn.url` &> /dev/null
   if [ $? == 0 ]; then svnURL="`dirname "$temp"`"; fi
 
 
-  gitURL="ssh://git@stash.xyz.com:7999/ABC/XYZ.git"
+  gitURL=
   gitRemote=origin
   gitBranch="master"
   repoDir="$curDir"
   mergeOpt="-s recursive -Xours -Xpatience \
     -Xignore-cr-at-eol -Xignore-space-at-eol"
 
-  temp=`git config --local --get remote.${gitRemote}.url`
+  temp=`git config --local --get remote.${gitRemote}.url` &> /dev/null
   if [ $? == 0 ]; then gitURL="${temp}"; fi
 
 
@@ -153,6 +153,21 @@ checkSettings()
     myExit 1
   fi
 
+  cd "$repoDir"
+  exitIfErr 1 "Cannot change to folder $repoDir!"
+
+  if [ "$svnURL" == "" ]; then
+    local temp=`git config --local --get svn-remote.svn.url`
+    exitIfErr 1 "Please specify svn URL"
+    svnURL="`dirname "$temp"`"; 
+  fi
+
+  if [ "$gitURL" == "" ]; then
+    local temp=`git config --local --get remote.${gitRemote}.url`
+    exitIfErr 1 "Please specify git URL"
+    gitURL="${temp}"; 
+  fi
+
   # check svn account
   if [ "$svnPwd" != "" ]; then
     svn info "$svnURL" --username "$svnUser" --password "$svnPwd" > /dev/null
@@ -165,7 +180,6 @@ checkSettings()
     exitIfErr 1 "Cannot access to svn, please specify user and password!"
   fi
 
-  cd "$repoDir"
   local status=`git status -s` &> /dev/null
   exitIfErr 1 "$repoDir is not a git folder.\n\
     Please switch to git directory."
@@ -467,6 +481,7 @@ syncGITtoSVN()
 
       if [[ $newHead == $oldHead ]]; then 
         ERROR "Cannot rebase $gitBranch branch onto of $svnRemote!"
+        git lfs install --local
         git rebase --abort
         myExit 1
       fi
@@ -548,6 +563,7 @@ syncGITtoSVN()
       exitIfErr 1 "Cannot remove LFS settings from git commits!" '
         cat "'$filterLog'"
         rm -f "'$tmp'/"lfs-[0-9a-fA-F]*
+        git lfs install --local
         '
       rm -f "$tmp/"lfs-[0-9a-fA-F]*
     else
@@ -562,7 +578,8 @@ syncGITtoSVN()
       git rm -f .gitattributes
       ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
       exitIfErr 1 "Cannot remove submodule settings from git commits!" '
-        cat "'$filterLog'"'
+        cat "'$filterLog'"
+        git lfs install --local'
     fi
 
     git lfs install --local
@@ -821,3 +838,5 @@ ERROR()
 
 echo "Started on `date`"
 main "$@"
+
+
