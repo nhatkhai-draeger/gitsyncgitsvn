@@ -1,3 +1,16 @@
+# Current issues:
+* git svn dcommit use differ svn user for commits
+* git rebase need to reserve it's original author info
+* one incident a merge from git to svn that left minor file content
+  differences (sim_report.txt were the one)
+
+# Wish list
+* When run on jenkins - still have dependency on nodes for global
+  .gitconfig
+* When run on jenkins - assuming nodes have git-lfs, cygwin git, cygwin
+  bash, scheduler cygwin home setting
+
+# Initial ideas
 ## Manual trial
 >svn log -q | awk -F '|' '/^r/ {sub("^ ", "", $2); sub(" $", "", $2); print $2" = "$2" <"$2">"}' | sort -u > authors-transform.txt
 Edit authors-transform.txt file xyz = xyz <xyz.xyz@xyz.com>
