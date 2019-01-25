@@ -381,13 +381,21 @@ syncSVNtoGIT()
   fi
 
   INFO "Now rebase onto $lfsBranch"
-  git rebase -s recursive -X theirs --keep-empty \
+  git rebase -s recursive -X theirs --keep-empty
+    --committer-date-is-author-date \
     --onto "$lfsBranch" "$svnBranch" "$tryLfsMerge"
   exitIfErr 1 "Cannot apply new SVN commit onto $lfsBranch!" '
     if [ "'$prompt'" == "yes" ]; then 
        read -p "Check why rebase is failed..."
     fi 
     git rebase --abort 2>/dev/null'
+
+  git filter-branch --env-filter '
+    export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
+    export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
+    export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
+  ' -f -- "$lfsBranch".."$tryLfsMerge"
+  exitIfErr 1 "Cannot readjust committer info onto $tryLfsMerge!"
 
   git branch -f "$lfsBranch"
   exitIfErr 1 "Cannot move $lfsBranch to new rebase tip!"
@@ -469,6 +477,7 @@ syncGITtoSVN()
 
     local oldHead
     git rebase -s recursive -X theirs \
+      --committer-date-is-author-date \
       --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge" 2> "$tmp/rebase"
 
     # This loop try to resolve some of the conflict that can be simply 
@@ -582,6 +591,14 @@ syncGITtoSVN()
         git lfs install --local'
     fi
 
+    git filter-branch --env-filter '
+      export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
+      export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
+      export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
+    ' -f -- "$svnRemote".."$tryMerge"
+    exitIfErr 1 "Cannot readjust committer info onto $tryMerge!" '
+        git lfs install --local'
+
     git lfs install --local
 
     if [ "$prompt" == "yes" ]; then
@@ -590,6 +607,7 @@ syncGITtoSVN()
 
     INFO "****** Do DCommit to push git commits into SVN server"
     echo $svnPwd | git svn dcommit --username "$svnUser" \
+      --use-log-author --add-author-from \
       ${dcommitOpt} $tryMerge 2> "$filterLog"
     exitIfErr 1 "dcommit failed with following message:" '
       cat "'$filterLog'"
@@ -619,9 +637,18 @@ syncGITtoSVN()
 
     if [ "$rebaseSync" == "yes" ]; then
       INFO "****** Rebase $gitBranch onto $lfsBranch"
-      git rebase ${mergeOpt} --onto "$lfsBranch" $mergeBaseSHA1 "$gitBranch"
+      git rebase ${mergeOpt} \
+        --committer-date-is-author-date \
+        --onto "$lfsBranch" $mergeBaseSHA1 "$gitBranch"
       exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
         git rebase --abort 2>/dev/null'
+
+      git filter-branch --env-filter '
+        export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
+        export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
+        export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
+      ' -f -- "$lfsBranch".."$gitBranch"
+      exitIfErr 1 "Cannot readjust committer info onto $gitBranch!"
     fi
 
     # Re-estimate commits that correct committed into SVN on gitBranch
@@ -649,9 +676,18 @@ syncGITtoSVN()
     fi
 
     INFO "****** Rebase commits on gitBranch that not get to dcommit"
-    git rebase --onto "$lfsBranch" "$tryLfsMerge" "$gitBranch"
+    git rebase \
+      --committer-date-is-author-date \
+      --onto "$lfsBranch" "$tryLfsMerge" "$gitBranch"
     exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
       git rebase --abort 2>/dev/null'
+
+    git filter-branch --env-filter '
+      export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
+      export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
+      export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
+    ' -f -- "$lfsBranch".."$gitBranch"
+    exitIfErr 1 "Cannot readjust committer info onto $gitBranch!"
 
     if [ "$prompt" == "yes" ]; then
       read -p "Check before push to stash, Press Enter...."
