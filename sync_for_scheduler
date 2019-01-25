@@ -97,17 +97,15 @@ syncASvnFolder()
 
   (
     cd "$gits/$repoName"
-    source "$sync" ${syncParam[*]} 2> "$errPath" 1> "$repoLogDir/$logFile" 
-    local error=$?
-    cat "$errPath" >> "$repoLogDir/$logFile"
-
-    if [ $error == 0 ]; then
+    echo>"$errPath"
+    ( source "$sync" ${syncParam[*]} &> "$repoLogDir/$logFile" )
+    if [ $? == 0 ]; then
       rm -f "$errPath"
       echo "+++++++++ Sync $repoName ($logFile) finished."
     else
+      cat "$repoLogDir/$logFile" >> "$errPath" 
       echo "+++++++++ Sync $repoName ($logFile) failed."
     fi
-    sleep 0.5
   ) &
 
   if [ "$veb" == "yes" ]; then
