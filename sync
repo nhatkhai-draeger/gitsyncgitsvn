@@ -395,7 +395,9 @@ syncSVNtoGIT()
     export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
     export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
   ' -f -- "$lfsBranch".."$tryLfsMerge"
-  exitIfErr 1 "Cannot readjust committer info onto $tryLfsMerge!"
+  if [[ $? != 2 ]]; then
+    exitIfErr 1 "Cannot readjust committer info onto $tryLfsMerge!"
+  fi
 
   git branch -f "$lfsBranch"
   exitIfErr 1 "Cannot move $lfsBranch to new rebase tip!"
@@ -596,8 +598,10 @@ syncGITtoSVN()
       export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
       export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
     ' -f -- "$svnRemote".."$tryMerge"
-    exitIfErr 1 "Cannot readjust committer info onto $tryMerge!" '
-        git lfs install --local'
+    if [[ $? != 2 ]]; then
+      exitIfErr 1 "Cannot readjust committer info onto $tryMerge!" '
+          git lfs install --local'
+    fi
 
     git lfs install --local
 
@@ -648,7 +652,9 @@ syncGITtoSVN()
         export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
         export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
       ' -f -- "$lfsBranch".."$gitBranch"
-      exitIfErr 1 "Cannot readjust committer info onto $gitBranch!"
+      if [[ $? != 2 ]]; then
+        exitIfErr 1 "Cannot readjust committer info onto $gitBranch!"
+      fi
     fi
 
     # Re-estimate commits that correct committed into SVN on gitBranch
@@ -687,7 +693,9 @@ syncGITtoSVN()
       export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
       export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
     ' -f -- "$lfsBranch".."$gitBranch"
-    exitIfErr 1 "Cannot readjust committer info onto $gitBranch!"
+    if [[ $? != 2 ]]; then
+      exitIfErr 1 "Cannot readjust committer info onto $gitBranch!"
+    fi
 
     if [ "$prompt" == "yes" ]; then
       read -p "Check before push to stash, Press Enter...."
@@ -818,10 +826,11 @@ relPath()
 exitIfErr()
 {
   if [ ! $? == 0 ]; then
+    local errCode=$?
     local error=$1
     local line=`caller`
     line=${line%% *}
-    >&2 echo `date +%H:%M:%S` "ERROR  :${line:0:4} $2"
+    >&2 echo `date +%H:%M:%S` "ERROR  :${line:0:4} (${errCode}) $2"
 
     shift
     shift

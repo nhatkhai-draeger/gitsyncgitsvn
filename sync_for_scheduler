@@ -109,6 +109,7 @@ syncASvnFolder()
   ) &
 
   if [ "$veb" == "yes" ]; then
+    sleep 0.2
     tail -f --pid $! "$repoLogDir/$logFile" | sed -e "s/^/\[$repoName\] /" &
   fi
 }
