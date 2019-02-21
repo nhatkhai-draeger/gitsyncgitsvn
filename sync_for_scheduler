@@ -2,13 +2,8 @@
 # This script will be called by scheduler for sync up SVN folder with git
 # repository.
 #
-
-# Specify location of sync script
 scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
-sync="${scriptDir}/sync"
-
-# Specify location of all local git repository path
-gits="$(dirname "${scriptDir}")/cached_repos"
+source "$scriptDir/logging"
 
 showHelp () 
 {
@@ -26,9 +21,15 @@ Options:
   -v, --verbose
       Will show all the log message on output stream
 
-  -g, --gitdir
+  -f, --force
+      Force sync run event if last run had failed.
+
+  -g, --gitdir GITS_PATH
       Specifiy where all the synch git repositories location. 
       (Default $gits)
+
+  -t, --threads N_MAX_THREADS
+      Specifiy maximum number of thread run at one time. (Default $max_threads)
 
 Sync_Script_Options:
 EOF
@@ -43,7 +44,10 @@ main()
   while [[ "$1" != "" ]]; do
     if [[ $1 =~ ^-h|--help$ ]]; then showHelp; return; fi
     if [[ $1 =~ ^-v|--verbose$ ]]; then veb="yes"; shift; continue; fi
+    if [[ $1 =~ ^-f|--force$ ]]; then force="yes"; shift; continue; fi
+
     if [[ $1 =~ ^-g|--gitdir$ ]]; then gits=$2; shift; shift; continue; fi
+    if [[ $1 =~ ^-t|--threads$ ]]; then max_threads=$2; shift; shift; continue; fi
     break;
   done
 
@@ -51,14 +55,26 @@ main()
   syncParam=( "$@" )
 
   # Sync all repository folders in $gits
-  echo "Sync all repositories in $gits"
-  ls "$gits" -1 > "$respoNames"
+  INFO "Sync all repositories in $gits"
+  ls "$gits" -1 > "$respoNames" || exit $?
   while read f; do 
     if [ -d "$gits/$f" ]; then 
+      # May need to wait if too many thread are running
+      local first=""
+      for (( ; ; )) do
+        local thcnt=`ls -1 "$logDir"/*/lock 2>/dev/null | wc -l`
+        if ((  $thcnt < $max_threads )); then break; fi 
+        if [[ -z "$first" ]]; then
+          first="no"
+          WARN "Wait for one of $thcnt thread finish, before start another 
+          sync thread on $f"
+        fi
+        sleep 1
+      done
+
       syncASvnFolder "$f" 
     fi 
   done < "$respoNames"
-  rm -f "$respoNames"
 
   # Wait for all the sync process finished
   wait
@@ -66,15 +82,12 @@ main()
 
   # Check weather any error occurred
   ls -1 "$logDir"/*/error.log &> "$logDir/tmp_$logFile"
-  if [ $? == 2 ]; then
-    echo "DONE: Everything when fine"
-    exit 0
-  else
-    echo "ERROR: One or more following repositories failed to sync:"
-    cat "$logDir/tmp_$logFile"
-    rm -f "$logDir/tmp_$logFile"
-    exit 1
-  fi
+  exitIf '$errCode -ne 2' 1 "One or more following repositories failed to sync:" '
+    cat "$logDir/tmp_$logFile" | sed -e "s/^/  /"
+  '
+
+  INFO "DONE: Everything when fine"
+  exitClean
 }
 
 # This function call sync script on specified git repository
@@ -85,41 +98,70 @@ syncASvnFolder()
 
   local repoLogDir="$logDir/$repoName"
   local errPath="$repoLogDir/error.log"
+  local lock="$repoLogDir/lock"
 
-  if [ -f "$errPath" ]; then
-    echo "Detected that previous ran have error or still running. "
-    echo "Please check the error and remove $errPath file"
+  if [[ "$force" -ne "yes" ]] && [[ -f "$errPath" ]]; then
+    ERROR "Detected that previous run failed.
+    Please check and remove $errPath files"
     return
   fi
 
-  echo "+++++++++ Sync $repoName ($logFile) ..."
   mkdir -p "$repoLogDir"
-
   (
-    cd "$gits/$repoName"
-    echo>"$errPath"
-    ( source "$sync" ${syncParam[*]} &> "$repoLogDir/$logFile" )
-    if [ $? == 0 ]; then
-      rm -f "$errPath"
-      echo "+++++++++ Sync $repoName ($logFile) finished."
-    else
-      cat "$repoLogDir/$logFile" >> "$errPath" 
-      echo "+++++++++ Sync $repoName ($logFile) failed."
-    fi
-  ) &
+    EXIT_CMDS=()
+    flock -n 9
+    exitIfErr 0 "Previous run is still running. 
+    If not, please remove $lock files"
+
+    EXIT_CMDS=("rm -f \"$lock\"")
+    INFO "+++++++++ Sync $repoName ($logFile) ..."
+    (
+      pushd "$gits/$repoName" || exit $?
+      "$sync" ${syncParam[*]} || exit $?
+      popd
+    ) &> "$repoLogDir/$logFile"
+    exitIfErr 1 "+++++++++ Sync $repoName ($logFile) failed." '
+      ln -f "$repoLogDir/$logFile" "$errPath"
+    '
+
+    INFO "+++++++++ Sync $repoName ($logFile) finished."
+    exitClean 0
+  ) 9>"$lock" &
 
   if [ "$veb" == "yes" ]; then
-    sleep 0.2
-    tail -f --pid $! "$repoLogDir/$logFile" | sed -e "s/^/\[$repoName\] /" &
+    for (( i=0 ; i<10 ; i++ )) do
+      if [[ -f "$repoLogDir/$logFile" ]]; then 
+        local name="              $repoName"
+        tail -f --pid $! "$repoLogDir/$logFile" \
+          | sed -e "s/^/\[${name: -15}\] /" 2>/dev/null &
+        break;
+      fi
+      sleep 1
+    done
   fi
+}
+
+cleanUp()
+{
+  INFO "Cleaning up..."
+  rm -f "$respoNames" &>/dev/null
+  rm -f "$logDir/tmp_$logFile" &>/dev/null
 }
 
 setDefaultSettings()
 {
   # Set default temp folder
   logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
-  logDir="/tmp"
-  respoNames="/tmp/respoNames_$BASHPID"
+  logDir="/tmp/`basename "$scriptDir"`"
+  respoNames="$logDir/respoNames_$BASHPID"
+
+  max_threads=5
+
+  sync="${scriptDir}/sync"
+
+  # Specify location of all local git repository path
+  gits="${scriptDir}/../cached_repos"
 }
 
+EXIT_CMDS=(cleanUp)
 main "$@"

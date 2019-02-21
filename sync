@@ -1,6 +1,7 @@
 #!/bin/bash 
 #!/bin/bash -x
-PS4='Line ${LINENO}: ' #For debugging
+scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
+source "$scriptDir/logging"
 
 showHelp () 
 {
@@ -20,14 +21,19 @@ Options:
   --git GIT_URL
       Setting origin remote git URL. (Default $gitURL)
 
-  --svnUser
+  --svnUser USERNAME
       Specify username for svn. (Default $svnUser)
 
-  --svnPwd
-      Specify svn passowrd.
+  --svnPwd PASSWORD
+      Specify svn password.
+
+  --authors AUTHORS_FILE_LOCATION
+      Specify authors files that contain a list of equation
+      USER_NAME=USER_EMAIL. (Default $authorFile)
 
   -s, --strategy STRATEGY_NAME
-      Specify git merge options. (Default is $mergeOpt)
+      Specify git merge options. (Default is 
+      $mergeOpt)
 
   -b, --branch BRANCH_NAME
       Specify git main branch to sync with SVN. (Default is $gitBranch)
@@ -64,6 +70,8 @@ while [[ "$1" != "" ]]; do
   if [[ $1 =~ ^--git$             ]]; then gitURL="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^--svnUser$         ]]; then svnUser="$2";                shift; shift; continue; fi
   if [[ $1 =~ ^--svnPwd$          ]]; then svnPwd="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--authors$         ]]; then authorFile="$2";             shift; shift; continue; fi
+
   if [[ $1 =~ ^-s|--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
   if [[ $1 =~ ^-b|--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
 
@@ -71,7 +79,7 @@ while [[ "$1" != "" ]]; do
   if [[ $1 =~ ^-m|--mergeSync$    ]]; then rebaseSync="no";             shift;        continue; fi
   if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt="-n $dcommitOpt"; shift;        continue; fi
   if [[ $1 =~ ^-p|--prompt$       ]]; then prompt="yes";                shift;        continue; fi
-  if [[ $1 =~ ^-d|--debug$        ]]; then dbg="yes";                   shift;        continue; fi
+  if [[ $1 =~ ^-d|--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
 
   INFO "Unknown argument $1"
   exit 2
@@ -115,12 +123,11 @@ setDefaultSettings()
   authorFile="../authors-transform.txt"
   rebaseSync="no"
   prompt="no"
-  dbg="no"
 
   svnURL=
   dcommitOpt="--rmdir"
 
-  local temp=`git config --local --get svn-remote.svn.url` &> /dev/null
+  local temp=`git config --local --get svn-remote.svn.url 2> /dev/null`
   if [ $? == 0 ]; then svnURL="`dirname "$temp"`"; fi
 
 
@@ -129,9 +136,9 @@ setDefaultSettings()
   gitBranch="master"
   repoDir="$curDir"
   mergeOpt="-s recursive -Xours -Xpatience \
-    -Xignore-cr-at-eol -Xignore-space-at-eol"
+-Xignore-cr-at-eol -Xignore-space-at-eol"
 
-  temp=`git config --local --get remote.${gitRemote}.url` &> /dev/null
+  temp=`git config --local --get remote.${gitRemote}.url 2> /dev/null`
   if [ $? == 0 ]; then gitURL="${temp}"; fi
 
 
@@ -157,13 +164,13 @@ checkSettings()
   exitIfErr 1 "Cannot change to folder $repoDir!"
 
   if [ "$svnURL" == "" ]; then
-    local temp=`git config --local --get svn-remote.svn.url`
+    local temp=`git config --local --get svn-remote.svn.url 2> /dev/null`
     exitIfErr 1 "Please specify svn URL"
     svnURL="`dirname "$temp"`"; 
   fi
 
   if [ "$gitURL" == "" ]; then
-    local temp=`git config --local --get remote.${gitRemote}.url`
+    local temp=`git config --local --get remote.${gitRemote}.url 2> /dev/null`
     exitIfErr 1 "Please specify git URL"
     gitURL="${temp}"; 
   fi
@@ -213,10 +220,10 @@ init_fetchNewSvnFolder()
   fi
 
   svnFolder="${1//\//-}"
-  svnRemote="svn-$svnFolder"
-  svnBranch="svn/$svnFolder"
+  svnRemote="svn-${svnFolder// /}"
+  svnBranch="svn/${svnFolder// /}"
   if [[ "$lfsFilter" != "" ]]; then
-    lfsBranch="svn/lfs/$svnFolder"
+    lfsBranch="svn/lfs/${svnFolder// /}"
   else
     lfsBranch="$svnBranch"
   fi
@@ -228,7 +235,7 @@ init_fetchNewSvnFolder()
     exitIfErr 1 "Cannot switch to $gitBranch branch"
   fi
 
-  git config --local --get remote.${gitRemote}.url
+  git config --local --get remote.${gitRemote}.url 
   if [[ $? != 0 ]]; then
     INFO "****** Link ${gitRemote} to ${gitURL}/${svnFolder}"
     git remote add ${gitRemote} "${gitURL}/${svnFolder}"
@@ -245,7 +252,7 @@ init_fetchNewSvnFolder()
   git branch -D -r "$svnRemote" 2> /dev/null
 
   INFO "****** Fetch SVN into $svnRemote"
-  git checkout --orphan "svn/${svnFolder}"
+  git checkout --orphan "${svnBranch}"
   exitIfErr 1 "Cannot checkout empty orphan branch of $svnRemote!"
 
   git reset --hard 2> /dev/null
@@ -264,6 +271,8 @@ init_fetchNewSvnFolder()
     git branch "$lfsBranch" "$svnRemote"
     exitIfErr 1 "Cannot create $lfsBranch branch"
 
+    git lfs uninstall --local
+
     INFO "****** Rebase SVN commits with lfs settings"
     WARN "TODO - This index-filter code had not tested"
     git filter-branch --prune-empty -f --index-filter '
@@ -273,6 +282,7 @@ init_fetchNewSvnFolder()
     exitIfErr 1 "Failed to apply LFS settings to $lfsBranch! due to:" '
       cat "'$filterLog'"'
 
+    git lfs install
     git lfs migrate import --fixup "$lfsBranch"
     exitIfErr 1 "Failed to migrate to LFS"
 
@@ -821,67 +831,12 @@ relPath()
   echo `realpath --relative-to="$curDir" "$1"`
 }
 
-# $1 - Error code
-# $2 - Error message
-exitIfErr()
-{
-  if [ ! $? == 0 ]; then
-    local errCode=$?
-    local error=$1
-    local line=`caller`
-    line=${line%% *}
-    >&2 echo `date +%H:%M:%S` "ERROR  :${line:0:4} (${errCode}) $2"
-
-    shift
-    shift
-    if [[ $# != 0 ]]; then (>&2 eval "$@") fi
-    myExit $error
-  fi
-}
-
 myExit()
 {
   cleanUp
   exit $1
 }
 
-DBG()
-{
-  if [ "$dbg" != "yes" ]; then return; fi
-  local line=`caller`
-  line=${line%% *}
-  echo `date +%H:%M:%S` "DEBUG:${line:0:4} $@"
-}
-
-INFO()
-{
-  local line=`caller`
-  line=${line%% *}
-  echo `date +%H:%M:%S` "INFO :${line:0:4} $@"
-}
-
-NOTE()
-{
-  local line=`caller`
-  line=${line%% *}
-  echo `date +%H:%M:%S` "NOTE :${line:0:4} $@"
-}
-
-WARN()
-{
-  local line=`caller`
-  line=${line%% *}
-  echo `date +%H:%M:%S` "WARN :${line:0:4} $@"
-}
-
-ERROR()
-{
-  local line=`caller`
-  line=${line%% *}
-  >&2 echo `date +%H:%M:%S` "ERROR:${line:0:4} $@"
-}
-
 echo "Started on `date`"
+EXIT_CMDS=(cleanUp)
 main "$@"
-
-

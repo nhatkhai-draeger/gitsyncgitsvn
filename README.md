@@ -2,27 +2,20 @@
 Script to synchronize change from SVN to GIT and vise versa.
 
 ## Setup a initial git repository
-```
-SYNC_GIT_PATH>git init
-SYNC_GIT_PATH>git lfs track "*.exe"
-# Edit .gitattributes file to have all the binary file use LFS
-SYNC_GIT_PATH>git add .gitattributes
-SYNC_GIT_PATH>git commit -m "Initial repo setting"
-SYNC_GIT_PATH>git remote add origin ssh://git@stash.xyz.com:7999/ABC/XYZ.git
-```
+* Repair a .gitattributes file to specify which type need to be track by
+  lfs in folder XXX
+* Repair a .gitignore and other .git files in folder XXX.
 
-After this initial setting you now can pick a SVN folder or subfolder to be
-synchronize with git. For example a Cricket folder in SVN
 ```
-SYNC_GIT_PATH>THIS_SCRIPT_FOLDER/sync --init Cricket --svn http://xyz:8080/svn/projects --svnUser XYZ --svnPwd ABC
+SYNC_GIT_PATH>init_new_sync --svnUser AAA --svnPwd BBB --svnUrL CCC --gitUrl DDD --gitDot XXX -- A_PROJECT_FOLDER_IN_SVN
 ```
 
 When this initialization is complete, you can run regularly the sync script
-in under the root of your git folder to synchronize commits. You can also
-use task scheduler to run the script
+in under the root of your git folder to synchronize commits.
 ```
-SYNC_GIT_PATH>THIS_SCRIPT_FOLDER/sync
+SYNC_GIT_PATH/A_PROJECT_FOLDER_IN_SV>THIS_SCRIPT_FOLDER/sync
 ```
+
 ## Detail parameters
 The sync script allows you to specify many other parameters other than its 
 default values. ``sync -h`` to see all available options

@@ -1,0 +1,150 @@
+#!/bin/bash
+# TODO - Describe this script
+#
+
+# Specify location of sync script
+scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
+source "$scriptDir/logging"
+
+showHelp () 
+{
+  cat <<EOF
+`basename "$0"` [options]
+
+This script should be called by scheduler to sync change between SVN and Git 
+repositories.
+
+Options:
+
+  -h, --help
+    Show this message.
+
+  --svnUrl SVN_URL 
+  --svnUser SVN_USER_NAME
+  --svnPwd SVN_USER_PASSWORD
+  --authors AUTHORS_FILE_LOCATION
+  --gitUrl GIT_URL
+  --gitDot DOTGIT_FILES_LOCATION
+EOF
+} # end of showHelp
+
+main()
+{
+  setDefaultSettings
+
+  # Go through all arguments
+  while [[ "$1" != "" ]]; do
+    if [[ $1 =~ ^-h|--help$     ]]; then showHelp; return; fi
+    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes"; shift; continue; fi
+
+    if [[ $1 =~ ^--svnUrl$  ]]; then svnURL="$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^--authors$ ]]; then authorFile="$2"; shift; shift; continue; fi
+
+    if [[ $1 =~ ^--gitDot$  ]]; then gitDOT="$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^--gitUrl$  ]]; then gitURL="$2"; shift; shift; continue; fi
+
+    work_on "$1"; shift; continue;
+  done
+
+  # Wait for all the process finished
+  wait
+  sleep 1
+
+  # Check weather any error occurred
+  ls -1 "$logDir"/*/error.log &> "$logDir/tmp_$logFile"
+  exitIf '$errCode -ne 2' 1 "One or more following repositories failed to initialize:" '
+    cat "$logDir/tmp_$logFile"
+  '
+
+  INFO "DONE: Everything went fine."
+  exitClean
+}
+
+work_on()
+{
+  exitIf '-z "$svnURL"' 1 "Need to specify svnURL"
+  exitIf '-z "$gitURL"' 1 "Need to specify gitURL"
+  exitIf '-z "$svnUser"' 1 "Need to specify svnUser"
+  exitIf '-z "$svnPwd"' 1 "Need to specify svnPwd"
+  exitIf '-z "$gitDOT"' 1 "Need to specify gitDOT -- path where .git* files"
+
+  sets=()
+  if [[ -n "$authorFile" ]]; then sets+=(--authors "$authorFile"); fi
+
+  local svn_dir_name="$1"
+  local git_dirname="${svn_dir_name// /}"
+
+  local repoLogDir="$logDir/${git_dirname}"
+  local errPath="$repoLogDir/error.log"
+  local lock="$repoLogDir/lock"
+
+  mkdir -p "$repoLogDir"
+  (
+    EXIT_CMDS=()
+    flock -n 9
+    exitIfErr 0 "Other process is still running. 
+    If not, please remove $lock file."
+
+    EXIT_CMDS=("rm -f \"$lock\"")
+    INFO "++++ Initialize $git_dirname...."
+    (
+      mkdir -p "${git_dirname}" 
+      pushd "${git_dirname}"
+      exitIfErr 1 "Cannot create folder $git_dirname"
+
+      git init
+      cp "${gitDOT}/.git"* .  
+      exitIfErr 1 "Cannot copy .git* files from $gitDOT"
+
+      git add .git*
+      git commit -m "Initial repo setting"
+      exitIf '$errCode -gt 1' 1 "Cannot make initial commit"
+
+      git remote add origin "${gitURL}/${git_dirname}.git"
+      exitIfErr 1 "Cannot add git remote"
+
+      "${sync}" --init "$svn_dir_name" \
+        --svn "$svnURL" --svnUser "$svnUser" --svnPwd "$svnPwd" \
+        "${sets[@]}" || exit $?
+      popd
+    ) &> "$repoLogDir/$logFile"
+    exitIfErr 1 "++++++ $git_dirname is failed." '
+      ln -f "$repoLogDir/$logFile" "$errPath"
+    '
+
+    INFO "+++++++ $git_dirname is initialized."
+    exitClean
+  ) 9> "$lock" &
+
+  if [ "$veb" == "yes" ]; then
+    for (( i=0 ; i<10 ; i++ )) do
+      if [[ -f "$repoLogDir/$logFile" ]]; then 
+        local name="              $git_dirname"
+        tail -f --pid $! "$repoLogDir/$logFile" \
+          | sed -e "s/^/\[${name: -15}\] /" 2>/dev/null &
+        break;
+      fi
+      sleep 1
+    done
+  fi
+}
+
+cleanUp()
+{
+  INFO "Cleaning up..."
+  rm -f "$logDir/tmp_$logFile" &>/dev/null
+}
+
+setDefaultSettings()
+{
+  # Set default temp folder
+  logFile="`basename "$0"`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
+  logDir="/tmp/`basename "$scriptDir"`"
+
+  sync="${scriptDir}/sync"
+}
+
+EXIT_CMDS=(cleanUp)
+main "$@"

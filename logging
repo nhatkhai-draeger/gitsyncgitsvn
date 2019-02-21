@@ -1,0 +1,185 @@
+#!/bin/bash
+#
+# A set of functions can be use for logging with LOG_LEVEL to control which
+# type will not be echo on console. LOG_LOCK_FILE can be use when run
+# multi process script
+#
+# A set of exitIf functions can be use for exit with error. EXIT_CMDS can
+# specify a set of codes can be executed before the exit.
+#
+LOG_LEVEL_ERROR=0
+LOG_LEVEL_WARN=1
+LOG_LEVEL_NOTE=2
+LOG_LEVEL_INFO=3
+LOG_LEVEL_DEBUG=4
+
+# LOG_LEVEL to specify which log will not be echo on the console
+if [[ -z ${LOG_LEVEL+x} ]]; then LOG_LEVEL=LOG_LEVEL_INFO; fi
+
+# EXIT_CMDS a list of command will be execute before calling exit in
+# exitIfErr, exitIf functions
+if [[ -z ${EXIT_CMDS+x} ]]; then EXIT_CMDS=(); fi
+
+
+# $1 - Exit code
+# $2 - Exit message
+# The rest parameters are a set of code will be execute before exit.
+exitIfErr()
+{
+  local errCode=$?
+  __exit_if "`caller`" '$errCode != 0' "$@"
+}
+
+# $1 - Condition in single quote. use $errCode instead of $?
+# $2 - Exit code
+# $3 - Exit message
+# The rest parameters are a set of code will be execute before exit.
+exitIf()
+{
+  local errCode=$?
+  __exit_if "`caller`" "$@"
+}
+
+# $3 - Exit Code, $errCode use to replace $?
+# The rest parameters for exit commands
+exitClean()
+{
+  local exitCode=$1
+  shift
+
+  if [[ $# != 0 ]]; then (>&2 eval "$@") fi
+  for c in "${EXIT_CMDS[@]}"; do
+    (eval $c)
+  done
+  exit $exitCode
+}
+
+# All parameter are log messages
+DBG()
+{
+      __log "`caller`" $LOG_LEVEL_DEBUG "DEBUG" "$@"
+}
+
+# All parameter are log messages
+INFO()
+{
+      __log "`caller`" $LOG_LEVEL_INFO  " INFO" "$@"
+}
+
+# All parameter are log messages
+NOTE()
+{
+      __log "`caller`" $LOG_LEVEL_NOTE  " NOTE" "$@"
+}
+
+# All parameter are log messages
+WARN()
+{
+      __log "`caller`" $LOG_LEVEL_WARN  " WARN" "$@"
+}
+
+# All parameter are log messages
+ERROR()
+{
+  >&2 __log "`caller`" $LOG_LEVEL_ERROR "ERROR" "$@"
+}
+
+# $1 - Caller "$line $filename"
+# $2 - Test condition, $errCode use to replace $?
+# $3 - Exit Code
+# $4 - Exit message
+# The rest parameters for exit commands
+__exit_if()
+{
+  local cond=`eval if "[[" $2 "]];" then echo "1;" fi`
+  if [[ "$cond" == "1" ]]; then
+    local caller=$1
+    local exitCode=$3
+    local exitMsg=$4
+    shift; shift; shift; shift;
+    __log "$caller" LOG_LEVEL_ERROR "ERROR" "(${errCode}) $exitMsg"
+
+    exitClean $exitCode "$@"
+  fi
+}
+
+# $1 is caller "$line $filename"
+# $2 is log level number
+# $3 is log level name
+# the rest is log messages
+__log()
+{
+  if [[ $LOG_LEVEL -lt $2 ]]; then return; fi
+  local lvlName=$3
+  local caller=$1
+  shift; shift; shift;
+
+  local line=${caller%% *}"   "
+  local file="         "`basename "${caller#* }"`
+
+  local out="`date +%H:%M:%S` [${file: -10}:${line:0:4}] $lvlName $@"
+  out="${out//\\n/\\n--       }"
+  out="${out//$'\n'/\\n--       }\n"
+  if [[ -z "$LOG_LOCK_FILE" ]]; then
+    printf "${out}"
+  else
+    (
+      flock -n 9 
+      printf "${out}"
+    ) 9> $LOG_LOCK_FILE
+  fi
+}
+
+
+if [[ $1 == "--test" ]]; then
+  LOG_LEVEL=$LOG_LEVEL_DEBUG
+  DBG "#1 THIS IS DEBUG Message"
+  INFO "#2 THIS IS INFO Message"
+  NOTE "#3 THIS IS NOTE Message"
+  WARN "#4 THIS IS WARN Message"
+  ERROR "#5 THIS IS ERROR Message"
+
+  LOG_LEVEL=$LOG_LEVEL_INFO
+  DBG "FAIL: THIS DEBUG Message should not shown"
+  INFO "#6 THIS IS INFO Message\nMultiline"
+  NOTE "#7 THIS IS NOTE Message
+  Line2
+  Line3"
+  WARN "#8 THIS IS WARN Message#2"
+  ERROR "FAIL: THIS IS ERROR Message should not shown" 2> /dev/null
+
+  exitIfErr 1 "FAIL: This should not shown" echo "also this"
+  if [[ $? -ne 0 ]]; then echo "FAIL"; fi
+
+  exitIf '1 == 2' 1 "FAIL: This should not shown" echo "also this"
+  if [[ $? -ne 0 ]]; then echo "FAIL"; fi
+
+  echo "It SHOULD show exactly #1-#8 messages, and #9-#10 message after this"
+
+  cleanUp1() { echo "#10 CleanUp 1"; }
+  cleanUp2() { echo "#9 CleanUp 2"; }
+  EXIT_CMDS=(cleanUp1)
+
+  (
+    EXIT_CMDS=(cleanUp2)
+    (exit 1)
+    exitIfErr 2 "#9 exiting error message" \
+      echo "\#9 Exit code SHOULD be 2"
+  )
+  if [[ $? -ne 2 ]]; then echo "FAIL"; fi
+
+  (
+    (exit 2)
+    exitIf '$errCode -ne 2' 4 "FAIL: this should not shown" 
+  )
+
+  myVar="Khai aflk iahK"
+  (
+    (exit 3)
+    exitIf '$errCode -ne 2' 3 "#10 exiting error message" '
+      echo "#10 My exit code is $exitCode" "'$myVar'"
+      echo "#10 My LOG_LEVEL is $LOG_LEVEL"
+    '
+  )
+  if [[ $? -ne 3 ]]; then echo "FAIL"; fi
+fi
