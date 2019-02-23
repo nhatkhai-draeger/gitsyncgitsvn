@@ -9,7 +9,7 @@ source "$scriptDir/logging"
 showHelp () 
 {
   cat <<EOF
-`basename "$0"` [options]
+`basename "$0"` [options] [{SVN_FOLDER_A}]
 
 This script should be called by scheduler to sync change between SVN and Git 
 repositories.
