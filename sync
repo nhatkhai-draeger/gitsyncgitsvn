@@ -391,14 +391,43 @@ syncSVNtoGIT()
   fi
 
   INFO "Now rebase onto $lfsBranch"
-  git rebase -s recursive -X theirs --keep-empty
+  git rebase -s recursive -X theirs --keep-empty \
     --committer-date-is-author-date \
     --onto "$lfsBranch" "$svnBranch" "$tryLfsMerge"
-  exitIfErr 1 "Cannot apply new SVN commit onto $lfsBranch!" '
-    if [ "'$prompt'" == "yes" ]; then 
-       read -p "Check why rebase is failed..."
-    fi 
-    git rebase --abort 2>/dev/null'
+
+  # This loop try to resolve some of the conflict that can be simply 
+  # solve - such as:
+  # * Removed files from git, but detected modified from SVN
+  while [[ $? != 0 ]]; do
+    local newHead=`cat .git/rebase-merge/current`
+
+    INFO "**** Try to resolve conflict automatically at $newHead"
+
+    if [[ $newHead == $oldHead ]]; then 
+      ERROR "Cannot apply new SVN commit onto $lfsBranch!"
+      if [ "$prompt" == "yes" ]; then 
+        read -p "Check why rebase is failed..."
+      fi 
+      git rebase --abort
+      myExit 1
+    fi
+
+    git status --porcelain > "$tmp/gitStatus"
+    cat "$tmp/gitStatus"
+
+    # Conflict ".D"
+    # * A file deleted from SVN 
+    sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
+      | while read f; do git rm "$f"; done
+
+    # Code use to debug this process
+    if [ "$prompt" == "yes" ]; then
+      read -p "Check...."
+    fi
+
+    oldHead=$newHead
+    git rebase --continue 2>> "$tmp/rebase"
+  done;
 
   git filter-branch --env-filter '
     export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
