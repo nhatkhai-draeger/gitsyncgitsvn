@@ -19,12 +19,27 @@ Options:
   -h, --help
     Show this message.
 
+  -v, --verbose
+    Turn on detail run log
+
   --svnUrl SVN_URL 
   --svnUser SVN_USER_NAME
   --svnPwd SVN_USER_PASSWORD
+
   --authors AUTHORS_FILE_LOCATION
+    Specify that svn user id map to git user id and email file. Each line
+    would be in following formular:
+       SVN_USER_ID=GIT_USER_ID <GIT_USER_EMAIL@XYZ.COM>
+
   --gitUrl GIT_URL
+    GIT_URL is a base git url. The repository name will be assume the same as
+    SVN_FOLDER_A values without the space characters. For example abc\xyz.git:
+      GIT_URL would be abc
+      SVN_FOLDER_A would be xyz
+
   --gitDot DOTGIT_FILES_LOCATION
+    Specify folder that contain .gitignore, .gitattribute, and other .git*
+    files to create an initial configuration for the git repository.
 EOF
 } # end of showHelp
 
@@ -40,9 +55,9 @@ main()
     if [[ $1 =~ ^--svnUrl$  ]]; then svnURL="$2"; shift; shift; continue; fi
     if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2"; shift; shift; continue; fi
     if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2"; shift; shift; continue; fi
-    if [[ $1 =~ ^--authors$ ]]; then authorFile="$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^--authors$ ]]; then authorFile=`realpath "$2"`; shift; shift; continue; fi
 
-    if [[ $1 =~ ^--gitDot$  ]]; then gitDOT="$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^--gitDot$  ]]; then gitDOT=`realpath "$2"`; shift; shift; continue; fi
     if [[ $1 =~ ^--gitUrl$  ]]; then gitURL="$2"; shift; shift; continue; fi
 
     work_on "$1"; shift; continue;
