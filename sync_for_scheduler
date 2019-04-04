@@ -46,7 +46,7 @@ main()
     if [[ $1 =~ ^-v|--verbose$ ]]; then veb="yes"; shift; continue; fi
     if [[ $1 =~ ^-f|--force$ ]]; then force="yes"; shift; continue; fi
 
-    if [[ $1 =~ ^-g|--gitdir$ ]]; then gits=$2; shift; shift; continue; fi
+    if [[ $1 =~ ^-g|--gitdir$ ]]; then gits=`realpath "$2"`; shift; shift; continue; fi
     if [[ $1 =~ ^-t|--threads$ ]]; then max_threads=$2; shift; shift; continue; fi
     break;
   done

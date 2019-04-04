@@ -90,6 +90,7 @@ work_on()
 
   local svn_dir_name="$1"
   local git_dirname="${svn_dir_name// /}"
+  git_dirname="${git_dirname//\//-}"
 
   local repoLogDir="$logDir/${git_dirname}"
   local errPath="$repoLogDir/error.log"
@@ -119,6 +120,9 @@ work_on()
 
       git remote add origin "${gitURL}/${git_dirname}.git"
       exitIfErr 1 "Cannot add git remote"
+
+      git push origin HEAD:master
+      exitIfErr 1 "Cannot push commits into remote server"
 
       "${sync}" --init "$svn_dir_name" \
         --svn "$svnURL" --svnUser "$svnUser" --svnPwd "$svnPwd" \
