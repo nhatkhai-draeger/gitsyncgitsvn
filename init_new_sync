@@ -22,6 +22,10 @@ Options:
   -v, --verbose
     Turn on detail run log
 
+  -f, --force
+    Try to force push to origin remote. This can remove the entile repos 
+    history. Use with care.
+
   --svnUrl SVN_URL 
   --svnUser SVN_USER_NAME
   --svnPwd SVN_USER_PASSWORD
@@ -51,6 +55,7 @@ main()
   while [[ "$1" != "" ]]; do
     if [[ $1 =~ ^-h|--help$     ]]; then showHelp; return; fi
     if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes"; shift; continue; fi
+    if [[ $1 =~ ^-f|--force$    ]]; then gitPushOpt="-f"; shift; continue; fi
 
     if [[ $1 =~ ^--svnUrl$  ]]; then svnURL="$2"; shift; shift; continue; fi
     if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2"; shift; shift; continue; fi
@@ -121,7 +126,7 @@ work_on()
       git remote add origin "${gitURL}/${git_dirname}.git"
       exitIfErr 1 "Cannot add git remote"
 
-      git push origin HEAD:master
+      git push ${gitPushOpt} origin HEAD:master
       exitIfErr 1 "Cannot push commits into remote server"
 
       "${sync}" --init "$svn_dir_name" \

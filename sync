@@ -277,8 +277,8 @@ init_fetchNewSvnFolder()
 
     INFO "****** Rebase SVN commits with lfs settings"
     git filter-branch --prune-empty -f --index-filter '
-      cp "'${tmp}/.gitattributes'" .gitattributes
-      git add .gitattributes
+      cp "'${tmp}'"/.git* .
+      git add .git*
       ' -- "${lfsBranch}" 2> "$filterLog"
     exitIfErr 1 "Failed to apply LFS settings to $lfsBranch! due to:" '
       cat "'$filterLog'"'
@@ -769,6 +769,10 @@ syncGITtoSVN()
 
 get_gitattributes()
 {
+  # Capture current .git setting files
+  rm -f "${tmp}/.git"*
+  cp .git* "${tmp}"
+
   # Capture project specific LFS setting
   git show "$gitBranch:.gitattributes" > "$tmp/.gitattributes" 2> /dev/null
   if [ $? == 0 ]; then
