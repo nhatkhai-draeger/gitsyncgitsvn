@@ -771,7 +771,7 @@ get_gitattributes()
 {
   # Capture current .git setting files
   rm -f "${tmp}/.git"*
-  cp .git* "${tmp}"
+  cp .git* "${tmp}" 2> /dev/null
 
   # Capture project specific LFS setting
   git show "$gitBranch:.gitattributes" > "$tmp/.gitattributes" 2> /dev/null

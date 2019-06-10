@@ -84,6 +84,8 @@ main()
   ls -1 "$logDir"/*/error.log &> "$logDir/tmp_$logFile"
   exitIf '$errCode -ne 2' 1 "One or more following repositories failed to sync:" '
     cat "$logDir/tmp_$logFile" | sed -e "s/^/  /"
+    echo "PLEASE CHECK ALL THE ERROR LOG FILES."
+    echo "REMOVE ERROR LOG FILES TO ALLOWS NEXT SCRIPT RUN NORMALLY."
   '
 
   INFO "DONE: Everything when fine"
@@ -100,7 +102,7 @@ syncASvnFolder()
   local errPath="$repoLogDir/error.log"
   local lock="$repoLogDir/lock"
 
-  if [[ "$force" -ne "yes" ]] && [[ -f "$errPath" ]]; then
+  if [[ "$force" != "yes" ]] && [[ -f "$errPath" ]]; then
     ERROR "Detected that previous run failed.
     Please check and remove $errPath files"
     return
