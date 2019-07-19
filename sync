@@ -601,9 +601,10 @@ syncGITtoSVN()
             cat "$f" | git lfs smudge > "$ref"
             if [ $? != 0 ]; then 
               rm -f "$ref"
-              break 
+              >&2 echo "  Cannot remove LFS pointer for $f"
+              exit 3
             fi
-            echo "  Remove LFS on $f"
+            echo "  Remove LFS pointer on $f"
           fi
           cp -f "$ref" "$f"
           git add "$f"
