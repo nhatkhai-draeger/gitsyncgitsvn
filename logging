@@ -57,31 +57,42 @@ exitClean()
 # All parameter are log messages
 DBG()
 {
-      __log "`caller`" $LOG_LEVEL_DEBUG "DEBUG" "$@"
+      __log "`caller`" $LOG_LEVEL_DEBUG "DEBUG" "" "$@"
+}
+
+# All parameter string will be eval
+DBG_EVAL()
+{
+      __log "`caller`" $LOG_LEVEL_DEBUG "DEBUG" "eval" "$@"
 }
 
 # All parameter are log messages
 INFO()
 {
-      __log "`caller`" $LOG_LEVEL_INFO  " INFO" "$@"
+      __log "`caller`" $LOG_LEVEL_INFO  " INFO" "" "$@"
+}
+
+INFO_EVAL()
+{
+      __log "`caller`" $LOG_LEVEL_INFO  " INFO" "eval" "$@"
 }
 
 # All parameter are log messages
 NOTE()
 {
-      __log "`caller`" $LOG_LEVEL_NOTE  " NOTE" "$@"
+      __log "`caller`" $LOG_LEVEL_NOTE  " NOTE" "" "$@"
 }
 
 # All parameter are log messages
 WARN()
 {
-      __log "`caller`" $LOG_LEVEL_WARN  " WARN" "$@"
+      __log "`caller`" $LOG_LEVEL_WARN  " WARN" "" "$@"
 }
 
 # All parameter are log messages
 ERROR()
 {
-  >&2 __log "`caller`" $LOG_LEVEL_ERROR "ERROR" "$@"
+  >&2 __log "`caller`" $LOG_LEVEL_ERROR "ERROR" "" "$@"
 }
 
 # $1 - Caller "$line $filename"
@@ -97,7 +108,7 @@ __exit_if()
     local exitCode=$3
     local exitMsg=$4
     shift; shift; shift; shift;
-    __log "$caller" LOG_LEVEL_ERROR "ERROR" "(${errCode}) $exitMsg"
+    __log "$caller" LOG_LEVEL_ERROR "ERROR" "" "(${errCode}) $exitMsg"
 
     exitClean $exitCode "$@"
   fi
@@ -106,30 +117,50 @@ __exit_if()
 # $1 is caller "$line $filename"
 # $2 is log level number
 # $3 is log level name
+# $4 is ext function
+#    if ext is "eval" will apply eval to the rest of parameter for log msg
+#    if ext is "" the rest of parameter are log msg
+#    otherwise each of the rest of parameters would be executed are with
+#    $ext as a command to produce log msg
 # the rest is log messages
 __log()
 {
   if [[ $LOG_LEVEL -lt $2 ]]; then return; fi
   local lvlName=$3
   local caller=$1
-  shift; shift; shift;
+  local ext=$4
+  shift; shift; shift; shift;
 
   local line=${caller%% *}"   "
   local file="         "`basename "${caller#* }"`
 
-  local out="`date +%H:%M:%S` [${file: -10}:${line:0:4}] $lvlName $@"
+  local pre="`date +%H:%M:%S` [${file: -10}:${line:0:4}] $lvlName "
+  if [ -z "$ext" ]; then
+    local out="${pre}$@"
+  else
+    local first="${pre}"
+    local out=""
+    while [ $# -gt 0 ]; do
+      local tmp=`$ext "$1"`
+      out="${out}${first}>$1\n${tmp//\\/\\\\}"
+      shift;
+      first="\n"
+    done
+  fi
+
+  # Add indent space before each lines
   out="${out//\\n/\\n--       }"
-  out="${out//$'\n'/\\n--       }\n"
+  out="${out//$'\n'/\\n--       }"
+
   if [[ -z "$LOG_LOCK_FILE" ]]; then
-    printf "${out}"
+    printf "${out}\n"
   else
     (
       flock -n 9 
-      printf "${out}"
+      printf "${out}\n"
     ) 9> $LOG_LOCK_FILE
   fi
 }
-
 
 if [[ $1 == "--test" ]]; then
   LOG_LEVEL=$LOG_LEVEL_DEBUG
@@ -153,8 +184,6 @@ if [[ $1 == "--test" ]]; then
 
   exitIf '1 == 2' 1 "FAIL: This should not shown" echo "also this"
   if [[ $? -ne 0 ]]; then echo "FAIL"; fi
-
-  echo "It SHOULD show exactly #1-#8 messages, and #9-#10 message after this"
 
   cleanUp1() { echo "#10 CleanUp 1"; }
   cleanUp2() { echo "#9 CleanUp 2"; }
@@ -182,4 +211,8 @@ if [[ $1 == "--test" ]]; then
     '
   )
   if [[ $? -ne 3 ]]; then echo "FAIL"; fi
+
+  LOG_LEVEL=$LOG_LEVEL_DEBUG
+  DBG_EVAL  'echo "#11 THIS IS A DBG_EVAL Message"'
+  INFO_EVAL 'echo "#12 THIS IS A INFO_EVAL\\a Message"'
 fi
