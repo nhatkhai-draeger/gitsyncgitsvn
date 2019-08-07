@@ -155,6 +155,8 @@ setDefaultSettings()
   # Set default temp folder
   logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
   logDir="/tmp/`basename "$scriptDir"`"
+  local temp=`cygpath -m "$logDir"`
+  if [ $? == 0 ]; then logDir=$temp; fi
   respoNames="$logDir/respoNames_$BASHPID"
 
   max_threads=5

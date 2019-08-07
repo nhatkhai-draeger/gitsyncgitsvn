@@ -86,6 +86,9 @@ while [[ ! -z "$1" ]]; do
 done
 
 checkSettings
+DBG      "## GIT, AND LFS CONFIGURATION ##"
+DBG_EVAL "which git-lfs" "git lfs env"
+DBG_EVAL "which git" "git version" "git config --list"
 DBG "Use temp folder of $tmp"
 
 get_gitattributes
@@ -119,6 +122,8 @@ setDefaultSettings()
   curDir="`pwd`"
   myDir="`dirname "$0"`"
   tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID"
+  local temp=`cygpath -m "$tmp"`
+  if [ $? == 0 ]; then tmp=$temp; fi
   
   authorFile="../authors-transform.txt"
   rebaseSync="no"
@@ -227,6 +232,13 @@ cleanUp()
   #TODO: Unlock gitBranch
   rm -rf "$tmp" 2> /dev/null
   cd "$curDir" 2> /dev/null
+}
+
+exitErrInfo()
+{
+INFO      "## GIT, AND LFS CONFIGURATION ##"
+INFO_EVAL "which git-lfs" "git lfs env"
+INFO_EVAL "which git" "git version" "git config --list"
 }
 
 init_fetchNewSvnFolder()
@@ -889,9 +901,10 @@ relPath()
 myExit()
 {
   cleanUp
+  if [[ $1 != 0 ]]; then exitErrInfo; fi
   exit $1
 }
 
 echo "Started on `date`"
-EXIT_CMDS=(cleanUp)
+EXIT_CMDS=(cleanUp exitErrInfo)
 main "$@"
