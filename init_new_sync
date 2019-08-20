@@ -50,6 +50,7 @@ EOF
 main()
 {
   setDefaultSettings
+  error_files=()
 
   # Go through all arguments
   while [[ "$1" != "" ]]; do
@@ -73,10 +74,12 @@ main()
   sleep 1
 
   # Check weather any error occurred
-  ls -1 "$logDir"/*/error.log &> "$logDir/tmp_$logFile"
-  exitIf '$errCode -ne 2' 1 "One or more following repositories failed to initialize:" '
-    cat "$logDir/tmp_$logFile"
-  '
+  for err in "${error_files[@]}"; do
+    if [ -f "$err" ]; then echo $err >> "$logDir/tmp_$logFile"; fi
+  done
+  exitIf '-f "$logDir/tmp_$logFile"' 1 \
+    "One or more following repositories failed to initialize:" \
+    'cat "$logDir/tmp_$logFile"'
 
   INFO "DONE: Everything went fine."
   exitClean
@@ -84,8 +87,8 @@ main()
 
 work_on()
 {
-  exitIf '-z "$svnURL"' 1 "Need to specify svnURL"
-  exitIf '-z "$gitURL"' 1 "Need to specify gitURL"
+  exitIf '-z "$svnURL"' 1 "Need to specify svnUrl"
+  exitIf '-z "$gitURL"' 1 "Need to specify gitUrl"
   exitIf '-z "$svnUser"' 1 "Need to specify svnUser"
   exitIf '-z "$svnPwd"' 1 "Need to specify svnPwd"
   exitIf '-z "$gitDOT"' 1 "Need to specify gitDOT -- path where .git* files"
@@ -100,6 +103,8 @@ work_on()
   local repoLogDir="$logDir/${git_dirname}"
   local errPath="$repoLogDir/error.log"
   local lock="$repoLogDir/lock"
+
+  error_files+=("$errPath")
 
   mkdir -p "$repoLogDir"
   (

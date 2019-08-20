@@ -53,6 +53,7 @@ main()
 
   # Capture the rest of argument for us in sync script
   syncParam=( "$@" )
+  error_files=()
 
   # Sync all repository folders in $gits
   INFO "Sync all repositories in $gits"
@@ -81,8 +82,11 @@ main()
   sleep 1
 
   # Check weather any error occurred
-  ls -1 "$logDir"/*/error.log &> "$logDir/tmp_$logFile"
-  exitIf '$errCode -ne 2' 1 "One or more following repositories failed to sync:" '
+  for err in "${error_files[@]}"; do
+    if [ -f "$err" ]; then echo $err >> "$logDir/tmp_$logFile"; fi
+  done
+  exitIf '-f "$logDir/tmp_$logFile"' 1 \
+    "One or more following repositories failed to sync:" '
     cat "$logDir/tmp_$logFile" | sed -e "s/^/  /"
     echo "PLEASE CHECK ALL THE ERROR LOG FILES."
     echo "REMOVE ERROR LOG FILES TO ALLOWS NEXT SCRIPT RUN NORMALLY."
@@ -101,6 +105,8 @@ syncASvnFolder()
   local repoLogDir="$logDir/$repoName"
   local errPath="$repoLogDir/error.log"
   local lock="$repoLogDir/lock"
+
+  error_files+=("$errPath")
 
   if [[ "$force" != "yes" ]] && [[ -f "$errPath" ]]; then
     ERROR "Detected that previous run failed.
