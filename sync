@@ -225,6 +225,14 @@ checkSettings()
     Please switch to git directory."
 
   if [[ ! -z "$status" ]]; then
+  # Try again with lfs uninstalled
+    git lfs uninstall --local
+    status=`git status -s` &> /dev/null
+    exitIfErr 1 "$repoDir is not a git folder.\n\
+      Please switch to git directory."
+  fi
+
+  if [[ ! -z "$status" ]]; then
     ERROR "The working directory is dirty. Please do a git reset --hard"
     ERROR "Following are files that need to be taking care:"
     ERROR "$status"
