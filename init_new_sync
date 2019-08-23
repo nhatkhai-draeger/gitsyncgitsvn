@@ -116,6 +116,10 @@ work_on()
     EXIT_CMDS=("rm -f \"$lock\"")
     INFO "++++ Initialize $git_dirname...."
     (
+      if [ "$gitPushOpt" == "-f" ]; then 
+        rm -rf "${git_dirname}" 
+      fi
+
       mkdir -p "${git_dirname}" 
       pushd "${git_dirname}"
       exitIfErr 1 "Cannot create folder $git_dirname"
