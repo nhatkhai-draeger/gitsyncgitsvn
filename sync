@@ -12,34 +12,33 @@ This script help sync change between SVN and Git repositories.
 
 Options:
 
-  --init SVN_FOLDER_PATH
-      Setting up initial SVN branch for synchronize
-
-  --svn SVN_URL
-      Setting SVN URL. (Default $svnURL)
-
-  --git GIT_URL
-      Setting origin remote git URL. (Default $gitURL)
-
-  --svnUser USERNAME
-      Specify username for svn. (Default $svnUser)
-
-  --svnPwd PASSWORD
-      Specify svn password.
-
   --authors AUTHORS_FILE_LOCATION
       Specify authors files that contain a list of equation
       USER_NAME=USER_EMAIL. (Default $authorFile)
 
-  -s, --strategy STRATEGY_NAME
-      Specify git merge options. (Default is 
-      $mergeOpt)
+  --init SVN_FOLDER_PATH
+      Setting up initial SVN branch for synchronize
+
+  --git GIT_URL
+      Setting origin remote git URL. (Default $gitURL)
+
+  --svn SVN_URL
+      Setting SVN URL. (Default $svnURL)
+
+  --svnPwd PASSWORD
+      Specify svn password.
+
+  --svnUser USERNAME
+      Specify username for svn. (Default $svnUser)
 
   -b, --branch BRANCH_NAME
       Specify git main branch to sync with SVN. (Default is $gitBranch)
 
-  -r, --rebaseSync
-      Use rebase to synchronize when svn and git branch as splited. 
+  -d, --debug
+      Will show all detail message for debugging the script.
+
+  -e, --email
+      Specify email file name to log committer's emails
 
   -m, --mergeSync
       Use merge to synchronize when svn and git branch as splited. 
@@ -51,8 +50,12 @@ Options:
   -p, --prompt
       Will stop a major point and ask for check before continue.
 
-  -d, --debug
-      Will show all detail message for debugging the script.
+  -r, --rebaseSync
+      Use rebase to synchronize when svn and git branch as splited. 
+
+  -s, --strategy STRATEGY_NAME
+      Specify git merge options. (Default is 
+      $mergeOpt)
 
 EOF
 } # end of showHelp
@@ -72,14 +75,14 @@ while [[ ! -z "$1" ]]; do
   if [[ $1 =~ ^--svnPwd$          ]]; then svnPwd="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^--authors$         ]]; then authorFile="$2";             shift; shift; continue; fi
 
-  if [[ $1 =~ ^-s|--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
   if [[ $1 =~ ^-b|--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
-
-  if [[ $1 =~ ^-r|--rebaseSync$   ]]; then rebaseSync="yes";            shift;        continue; fi
+  if [[ $1 =~ ^-d|--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
+  if [[ $1 =~ ^-e|--email$        ]]; then emailFile="$2";              shift; shift; continue; fi
   if [[ $1 =~ ^-m|--mergeSync$    ]]; then rebaseSync="no";             shift;        continue; fi
   if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt="-n $dcommitOpt"; shift;        continue; fi
   if [[ $1 =~ ^-p|--prompt$       ]]; then prompt="yes";                shift;        continue; fi
-  if [[ $1 =~ ^-d|--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
+  if [[ $1 =~ ^-r|--rebaseSync$   ]]; then rebaseSync="yes";            shift;        continue; fi
+  if [[ $1 =~ ^-s|--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
 
   INFO "Unknown argument $1"
   exit 2
@@ -94,6 +97,7 @@ DBG "Use temp folder of $tmp"
 get_gitattributes
 init_fetchNewSvnFolder "${init[@]}"
 
+get_svnInfo
 local svnNewSHA="dummy"
 local lfsNewSHA="dummy"
 
@@ -105,7 +109,12 @@ while [ "$run_again" != "no" ]; do
     break; 
   fi
 
-  get_svnInfo
+  lfsSHA1=`getSHA1 "$lfsBranch"`
+  svnSHA1=`getSHA1 "$svnBranch"`
+
+  DBG "SVN folder label: $svnFolder"
+  DBG "SVN branch      : $svnSHA1 - $svnRemote"
+  DBG "LFS sync branch : $lfsSHA1 - $lfsBranch"
 
   syncSVNtoGIT
   syncGITtoSVN
@@ -122,6 +131,7 @@ setDefaultSettings()
   curDir="`pwd`"
   myDir="`dirname "$0"`"
   tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID"
+  emailFile=$tmp/emails
   local temp=`cygpath -m "$tmp"`
   if [ $? == 0 ]; then tmp=$temp; fi
   
@@ -135,7 +145,6 @@ setDefaultSettings()
   local temp=`git config --local --get svn-remote.svn.url 2> /dev/null`
   if [ $? == 0 ]; then svnURL="`dirname "$temp"`"; fi
 
-
   gitURL=
   gitRemote=origin
   gitBranch="master"
@@ -145,7 +154,6 @@ setDefaultSettings()
 
   temp=`git config --local --get remote.${gitRemote}.url 2> /dev/null`
   if [ $? == 0 ]; then gitURL="${temp}"; fi
-
 
   init=()
 } # End of setDefaultSettings
@@ -228,6 +236,8 @@ checkSettings()
 
 cleanUp()
 {
+  DBG_EVAL "cat $emailFile"
+
   #TODO: Unlock SVN folder
   #TODO: Unlock gitBranch
   rm -rf "$tmp" 2> /dev/null
@@ -289,8 +299,8 @@ init_fetchNewSvnFolder()
 
   git reset --hard 2> /dev/null
 
-  # Send password twice because there is a case where svn asked for
-  # password second time if the git-svn layout version not match
+  # Send password twice because there was a case where svn asked for
+  # password second times if the git-svn layout version not match
   printf "$svnPwd\n$svnPwd\n" | git svn fetch --username "$svnUser" \
     -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
@@ -308,6 +318,7 @@ init_fetchNewSvnFolder()
     git lfs uninstall --local
 
     INFO "****** Rebase SVN commits with lfs settings"
+    # This WORKAROUND help git lfs migrate work more effective
     git filter-branch --prune-empty -f --index-filter '
       cp "'${tmp}'"/.git* .
       git add .git*
@@ -315,7 +326,7 @@ init_fetchNewSvnFolder()
     exitIfErr 1 "Failed to apply LFS settings to $lfsBranch! due to:" '
       cat "'$filterLog'"'
 
-    git lfs install
+    git lfs install --local
     git lfs migrate import --fixup "$lfsBranch"
     exitIfErr 1 "Failed to migrate to LFS"
 
@@ -374,6 +385,9 @@ syncSVNtoGIT()
   git branch -f "$tryLfsMerge" "$svnRemote"
   exitIfErr 1 "Cannot create a temporary branch $tryLfsMerge"
 
+  # Extract list of committers' email
+  git log --pretty:format:%ce $svnSHA1..$svnNewSHA1 | sort -u >> "${emailFile}"
+
   if [[ ! -z "$lfsFilter" ]]; then
     INFO "** Apply LFS setting on new SVN commits on $svnRemote"
 
@@ -411,7 +425,7 @@ syncSVNtoGIT()
     INFO "Migrate SVN commit to LFS"
     # It is often filter-branch along is not enough to convert file into
     # LFS - seem like file that modified are the once did not converted
-    # into LFS
+    # into LFS - Use git lfs migrate to help WORKAROUND this issue.
     git lfs migrate import  \
       --fixup \
       --exclude-ref="${svnBranch}" \
@@ -425,7 +439,6 @@ syncSVNtoGIT()
 
   INFO "Now rebase onto $lfsBranch"
   git rebase -s recursive -X theirs --keep-empty \
-    --committer-date-is-author-date \
     --onto "$lfsBranch" "$svnBranch" "$tryLfsMerge"
 
   # This loop try to resolve some of the conflict that can be simply 
@@ -526,6 +539,9 @@ syncGITtoSVN()
   fi
   INFO "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
 
+  # Extract list of committers' email
+  git log --pretty:format:%ce $lfsBranch..$gitSHA | sort -u >> "${emailFile}"
+
   local uncommitedCnt=0
   if [ $gitSHA == $mergeBaseSHA1 ]; then
     #    +------gitBranch
@@ -551,7 +567,6 @@ syncGITtoSVN()
 
     local oldHead
     git rebase -s recursive -X theirs \
-      --committer-date-is-author-date \
       --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge" 2> "$tmp/rebase"
 
     # This loop try to resolve some of the conflict that can be simply 
@@ -715,7 +730,6 @@ syncGITtoSVN()
     if [ "$rebaseSync" == "yes" ]; then
       INFO "****** Rebase $gitBranch onto $lfsBranch"
       git rebase ${mergeOpt} \
-        --committer-date-is-author-date \
         --onto "$lfsBranch" $mergeBaseSHA1 "$gitBranch"
       exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
         git rebase --abort 2>/dev/null'
@@ -756,7 +770,6 @@ syncGITtoSVN()
 
     INFO "****** Rebase commits on gitBranch that not get to dcommit"
     git rebase \
-      --committer-date-is-author-date \
       --onto "$lfsBranch" "$tryLfsMerge" "$gitBranch"
     exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
       git rebase --abort 2>/dev/null'
@@ -825,6 +838,8 @@ get_gitattributes()
     NOTE "Not use LFS for this repository"
   else
     DBG  "LFS files are: $lfsFilter"
+    ## uninstall LFS global to make sure it not interfere the local lfs 
+    ## configuration
     #git lfs uninstall       &> /dev/null
     git lfs install --local 2> /dev/null
   fi
@@ -848,13 +863,6 @@ get_svnInfo()
   else
     lfsBranch="$svnBranch"
   fi
-
-  lfsSHA1=`getSHA1 "$lfsBranch"`
-  svnSHA1=`getSHA1 "$svnBranch"`
-
-  DBG "SVN folder label: $svnFolder"
-  DBG "SVN branch      : $svnSHA1 - $svnRemote"
-  DBG "LFS sync branch : $lfsSHA1 - $lfsBranch"
 }
 
 getSvnCommiters()
