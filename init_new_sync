@@ -135,8 +135,10 @@ work_on()
       git remote add origin "${gitURL}/${git_dirname}.git"
       exitIfErr 1 "Cannot add git remote"
 
-      git push ${gitPushOpt} origin HEAD:master
-      exitIfErr 1 "Cannot push commits into remote server"
+      ## TODO: This push make cause issue when sync failed, so disable it
+      ## for now
+      #git push ${gitPushOpt} origin HEAD:master
+      #exitIfErr 1 "Cannot push commits into remote server"
 
       "${sync}" --init "$svn_dir_name" \
         --svn "$svnURL" --svnUser "$svnUser" --svnPwd "$svnPwd" \
