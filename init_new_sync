@@ -54,17 +54,19 @@ main()
 
   # Go through all arguments
   while [[ "$1" != "" ]]; do
-    if [[ $1 =~ ^-h|--help$     ]]; then showHelp; return; fi
-    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes"; shift; continue; fi
+    if [[ $1 =~ ^-h|--help$     ]]; then showHelp;                 return; fi
+    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";       shift; continue; fi
     if [[ $1 =~ ^-f|--force$    ]]; then gitPushOpt="-f"; shift; continue; fi
 
-    if [[ $1 =~ ^--svnUrl$  ]]; then svnURL="$2"; shift; shift; continue; fi
-    if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2"; shift; shift; continue; fi
-    if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2"; shift; shift; continue; fi
-    if [[ $1 =~ ^--authors$ ]]; then authorFile=`realpath "$2"`; shift; shift; continue; fi
+    if [[ $1 =~ ^--svnUrl$  ]]; then svnURL="$2";                 shift; shift; continue; fi
+    if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2";                shift; shift; continue; fi
+    if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2";                 shift; shift; continue; fi
+    if [[ $1 =~ ^--authors$ ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
 
-    if [[ $1 =~ ^--gitDot$  ]]; then gitDOT=`realpath "$2"`; shift; shift; continue; fi
-    if [[ $1 =~ ^--gitUrl$  ]]; then gitURL="$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^--gitDot$  ]]; then gitDOT=`realpath "$2"`;      shift; shift; continue; fi
+    if [[ $1 =~ ^--gitUrl$  ]]; then gitURL="$2";                 shift; shift; continue; fi
+
+    if [[ $1 =~ ^--[a-z-]+$ ]]; then syncOps+=("$1" "$2");        shift; shift; continue; fi;
 
     work_on "$1"; shift; continue;
   done
@@ -93,7 +95,7 @@ work_on()
   exitIf '-z "$svnPwd"' 1 "Need to specify svnPwd"
   exitIf '-z "$gitDOT"' 1 "Need to specify gitDOT -- path where .git* files"
 
-  sets=()
+  sets=("${syncOps[@]}")
   if [[ -n "$authorFile" ]]; then sets+=(--authors "$authorFile"); fi
 
   local svn_dir_name="$1"
@@ -181,6 +183,7 @@ setDefaultSettings()
   if [ $? == 0 ]; then logDir=$temp; fi
 
   sync="${scriptDir}/sync"
+  syncOps=()
 }
 
 EXIT_CMDS=(cleanUp)

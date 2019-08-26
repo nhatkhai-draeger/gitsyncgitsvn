@@ -19,6 +19,10 @@ Options:
   --init SVN_FOLDER_PATH
       Setting up initial SVN branch for synchronize
 
+  --ignore-paths <regex>
+      Perl regular expression to skipping of all matching pahts. Use for
+      with --init. This is the git svn option.
+
   --git GIT_URL
       Setting origin remote git URL. (Default $gitURL)
 
@@ -69,6 +73,7 @@ while [[ ! -z "$1" ]]; do
   if [[ $1 =~ ^-h|--help$         ]]; then showHelp; myExit 0;                                  fi
 
   if [[ $1 =~ ^--init$            ]]; then init=("$2");                 shift; shift; continue; fi
+  if [[ $1 =~ ^--ignore-paths     ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
   if [[ $1 =~ ^--svn$             ]]; then svnURL="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^--git$             ]]; then gitURL="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^--svnUser$         ]]; then svnUser="$2";                shift; shift; continue; fi
@@ -295,6 +300,10 @@ init_fetchNewSvnFolder()
   git config --local svn-remote.svn.url   "$svnURL/$1"
   git config --local svn-remote.svn.fetch ":refs/remotes/$svnRemote"
   exitIfErr 1 "Cannot configure remote SVN to $svnURL!"
+
+  if [[ ! -z $svnIgnorePaths ]]; then 
+    git config --local svn-remote.svn.ignore-paths "$svnIgnorePaths"
+  fi
   rm -rf "$repoDir/.git/svn" 2> /dev/null
 
   git branch -D    "$lfsBranch" 2> /dev/null
@@ -306,6 +315,7 @@ init_fetchNewSvnFolder()
   exitIfErr 1 "Cannot checkout empty orphan branch of $svnRemote!"
 
   git reset --hard 2> /dev/null
+  git lfs uninstall --local
 
   # Send password twice because there was a case where svn asked for
   # password second times if the git-svn layout version not match
