@@ -23,8 +23,8 @@ Options:
     Don't use flock - to avoid error for some system.
 
   -f, --force
-    Try to force push to origin remote. This can remove the entile repos 
-    history. Use with care.
+    Remove git folder if exist before initialize. This can remove the
+    entile repos history. Use with care.
 
   -t, --threads N_MAX_THREADS
       Specifiy maximum number of thread run at one time. (Default $max_threads)
@@ -63,7 +63,7 @@ main()
     if [[ $1 =~ ^-h|--help$     ]]; then showHelp; return; fi
 
     if [[ $1 =~ ^--noflock$     ]]; then flock='no';              shift;        continue; fi
-    if [[ $1 =~ ^-f|--force$    ]]; then gitPushOpt="-f";         shift;        continue; fi
+    if [[ $1 =~ ^-f|--force$    ]]; then force='yes';             shift;        continue; fi
     if [[ $1 =~ ^-t|--threads$  ]]; then max_threads=$2;          shift; shift; continue; fi
     if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";               shift;        continue; fi
 
@@ -129,6 +129,24 @@ work_on()
 
   error_files+=("$errPath")
 
+  if [[ "$force" != "yes" ]]; then
+    if [[ -f "$errPath" ]]; then
+      ERROR "Detected that previous run failed.
+      Please check and remove $errPath files"
+      return
+    fi
+
+    if [[ -d "${git_dirname}" ]]; then 
+      ERROR "${git_dirname} already exist"
+      return
+    fi
+
+    if [[ "$flock" != "yes" && -f "$lock" ]]; then 
+      ERROR "Some thread may still running. 
+      Please wait or remove ${lock}"
+    fi
+  fi
+
   mkdir -p "$repoLogDir"
   (
     EXIT_CMDS=()
@@ -139,7 +157,13 @@ work_on()
     EXIT_CMDS=("rm -f \"$lock\"")
     INFO "++++ Initialize $git_dirname...."
     (
-      if [ "$gitPushOpt" == "-f" ]; then 
+      if [[ -f "$errPath" && "$force" == "yes" ]]; then
+        WARN "Removing previous run failed log $errPath"
+        rm -f "$errPath"
+      fi
+
+      if [[ -d "${git_dirname}" && "$force" == "yes" ]]; then 
+        WARN "Removing old ${git_dirname}"
         rm -rf "${git_dirname}" 
       fi
 

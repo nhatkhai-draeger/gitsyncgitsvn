@@ -22,7 +22,7 @@ Options:
     Don't use flock - to avoid error for some system.
 
   -f, --force
-      Force sync run event if last run had failed.
+      Force sync to remove run had failed log file, and continue run sync.
 
   -t, --threads N_MAX_THREADS
       Specifiy maximum number of thread run at one time. (Default $max_threads)
@@ -108,10 +108,17 @@ syncASvnFolder()
 
   error_files+=("$errPath")
 
-  if [[ "$force" != "yes" ]] && [[ -f "$errPath" ]]; then
-    ERROR "Detected that previous run failed.
-    Please check and remove $errPath files"
-    return
+  if [[ "$force" != "yes" ]]; then
+    if [[ -f "$errPath" ]]; then
+      ERROR "Detected that previous run failed.
+      Please check and remove $errPath files"
+      return
+    fi
+
+    if [[ "$flock" != "yes" && -f "$lock" ]]; then 
+      ERROR "Some thread may still running. 
+      Please wait or remove ${lock}"
+    fi
   fi
 
   mkdir -p "$repoLogDir"
@@ -120,6 +127,11 @@ syncASvnFolder()
     if [[ "$flock" == "yes" ]]; then flock -n 9; fi
     exitIfErr 0 "Previous run is still running. 
     If not, please remove $lock files"
+
+    if [[ -f "$errPath" && "$force" == "yes" ]]; then
+      WARN "Removing previous run failed log $errPath"
+      rm -f "$errPath"
+    fi
 
     EXIT_CMDS=("rm -f \"$lock\"")
     INFO "+++++++++ Sync $repoName ($logFile) ..."
