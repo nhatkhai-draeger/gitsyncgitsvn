@@ -16,21 +16,21 @@ Options:
       Specify authors files that contain a list of equation
       USER_NAME=USER_EMAIL. (Default $authorFile)
 
-  --init SVN_FOLDER_PATH
-      Setting up initial SVN branch for synchronize
+  --gitUrl GIT_URL
+      Setting origin remote git URL. (Default $gitURL)
 
   --ignore-paths <regex>
       Perl regular expression to skipping of all matching pahts. Use for
       with --init. This is the git svn option.
 
-  --git GIT_URL
-      Setting origin remote git URL. (Default $gitURL)
-
-  --svn SVN_URL
-      Setting SVN URL. (Default $svnURL)
+  --init SVN_FOLDER_PATH
+      Setting up initial SVN branch for synchronize
 
   --svnPwd PASSWORD
       Specify svn password.
+
+  --svnUrl SVN_URL
+      Setting SVN URL. (Default $svnURL)
 
   --svnUser USERNAME
       Specify username for svn. (Default $svnUser)
@@ -70,15 +70,15 @@ setDefaultSettings
 
 # Go through all arguments
 while [[ ! -z "$1" ]]; do
-  if [[ $1 =~ ^-h|--help$         ]]; then showHelp; myExit 0;                                  fi
+  if [[ $1 =~ ^-h|--help$         ]]; then showHelp; return; fi
 
-  if [[ $1 =~ ^--init$            ]]; then init=("$2");                 shift; shift; continue; fi
-  if [[ $1 =~ ^--ignore-paths     ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
-  if [[ $1 =~ ^--svn$             ]]; then svnURL="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--git$             ]]; then gitURL="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnUser$         ]]; then svnUser="$2";                shift; shift; continue; fi
-  if [[ $1 =~ ^--svnPwd$          ]]; then svnPwd="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^--authors$         ]]; then authorFile="$2";             shift; shift; continue; fi
+  if [[ $1 =~ ^--gitUrl$          ]]; then gitURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--ignore-paths     ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
+  if [[ $1 =~ ^--init$            ]]; then init=("$2");                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnPwd$          ]]; then svnPwd="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUrl$          ]]; then svnURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUser$         ]]; then svnUser="$2";                shift; shift; continue; fi
 
   if [[ $1 =~ ^-b|--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
   if [[ $1 =~ ^-d|--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
@@ -292,8 +292,8 @@ init_fetchNewSvnFolder()
 
   git config --local --get remote.${gitRemote}.url 
   if [[ $? != 0 ]]; then
-    INFO "****** Link ${gitRemote} to ${gitURL}/${svnFolder}"
-    git remote add ${gitRemote} "${gitURL}/${svnFolder}"
+    INFO "****** Link ${gitRemote} to ${gitURL}"
+    git remote add ${gitRemote} "${gitURL}"
   fi
 
   INFO "****** Create a svn remote under $svnRemote branch"

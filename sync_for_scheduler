@@ -8,7 +8,7 @@ source "$scriptDir/logging"
 showHelp () 
 {
   cat <<EOF
-`basename "$0"` [options] [Sync_Script_Options]
+`basename "$0"` [options] [Sync_Script_Options] [{REPOS_NAME}]
 
 This script should be called by scheduler to sync change between SVN and Git 
 repositories.
@@ -18,20 +18,25 @@ Options:
   -h, --help
     Show this message.
 
-  -v, --verbose
-      Will show all the log message on output stream
+  --noflock
+    Don't use flock - to avoid error for some system.
 
   -f, --force
       Force sync run event if last run had failed.
 
-  -g, --gitdir GITS_PATH
-      Specifiy where all the synch git repositories location. 
-      (Default $gits)
-
   -t, --threads N_MAX_THREADS
       Specifiy maximum number of thread run at one time. (Default $max_threads)
 
+  -v, --verbose
+      Will show all the log message on output stream
+
+  -g, --gitDir GITS_PATH
+      Specifiy where all the synch git repositories location. 
+      (Default $gits)
+
 Sync_Script_Options:
+  NOTE: Use full option names for passing value, use short option names for
+  not required passing value
 EOF
 "$sync" -h
 } # end of showHelp
@@ -39,43 +44,38 @@ EOF
 main()
 {
   setDefaultSettings
-
-  # Go through all arguments
-  while [[ "$1" != "" ]]; do
-    if [[ $1 =~ ^-h|--help$ ]]; then showHelp; return; fi
-    if [[ $1 =~ ^-v|--verbose$ ]]; then veb="yes"; shift; continue; fi
-    if [[ $1 =~ ^-f|--force$ ]]; then force="yes"; shift; continue; fi
-
-    if [[ $1 =~ ^-g|--gitdir$ ]]; then gits=`realpath "$2"`; shift; shift; continue; fi
-    if [[ $1 =~ ^-t|--threads$ ]]; then max_threads=$2; shift; shift; continue; fi
-    break;
-  done
-
-  # Capture the rest of argument for us in sync script
-  syncParam=( "$@" )
   error_files=()
 
-  # Sync all repository folders in $gits
-  INFO "Sync all repositories in $gits"
-  ls "$gits" -1 > "$respoNames" || exit $?
-  while read f; do 
-    if [ -d "$gits/$f" ]; then 
-      # May need to wait if too many thread are running
-      local first=""
-      for (( ; ; )) do
-        local thcnt=`ls -1 "$logDir"/*/lock 2>/dev/null | wc -l`
-        if ((  $thcnt < $max_threads )); then break; fi 
-        if [[ -z "$first" ]]; then
-          first="no"
-          WARN "Wait for one of $thcnt thread finish, before start another 
-          sync thread on $f"
-        fi
-        sleep 1
-      done
+  # Go through all arguments
+  while [[ ! -z "$1" ]]; do
+    if [[ $1 =~ ^-h|--help$     ]]; then showHelp;  return; fi
 
-      syncASvnFolder "$f" 
-    fi 
-  done < "$respoNames"
+    if [[ $1 =~ ^--noflock$     ]]; then flock='no';            shift;        continue; fi
+    if [[ $1 =~ ^-f|--force$    ]]; then force="yes";           shift;        continue; fi
+    if [[ $1 =~ ^-t|--threads$  ]]; then max_threads=$2;        shift; shift; continue; fi
+    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";             shift;        continue; fi
+
+    if [[ $1 =~ ^-g|--gitDir$   ]]; then gits=`realpath "$2"`;  shift; shift; continue; fi
+
+    if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "$2");   shift; shift; continue; fi;
+    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1");        shift;        continue; fi;
+
+    repos+=("$1"); shift;
+  done
+
+  if [[ -z $repos ]]; then
+    # Sync all repository folders in $gits
+    INFO "Sync all repositories in $gits"
+    ls "$gits" -1 > "$respoNames" || exit $?
+    while read f; do 
+      if [ -d "$gits/$f" ]; then repos+=("$f") fi
+    done < "$respoNames"
+  fi
+
+  for f in "${repos[@]}"; do 
+    waitNThreads "$logDir/" "/lock" "$max_threads" " on $f"
+    syncASvnFolder "$f" 
+  done
 
   # Wait for all the sync process finished
   wait
@@ -117,7 +117,7 @@ syncASvnFolder()
   mkdir -p "$repoLogDir"
   (
     EXIT_CMDS=()
-    flock -n 9
+    if [[ "$flock" == "yes" ]]; then flock -n 9; fi
     exitIfErr 0 "Previous run is still running. 
     If not, please remove $lock files"
 
@@ -125,7 +125,7 @@ syncASvnFolder()
     INFO "+++++++++ Sync $repoName ($logFile) ..."
     (
       pushd "$gits/$repoName" || exit $?
-      "$sync" ${syncParam[*]} || exit $?
+      "$sync" "${syncOps[@]}" || exit $?
       popd
     ) &> "$repoLogDir/$logFile"
     exitIfErr 1 "+++++++++ Sync $repoName ($logFile) failed." '
@@ -158,6 +158,8 @@ cleanUp()
 
 setDefaultSettings()
 {
+  sync="${scriptDir}/sync"
+
   # Set default temp folder
   logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
   logDir="/tmp/`basename "$scriptDir"`"
@@ -166,11 +168,13 @@ setDefaultSettings()
   respoNames="$logDir/respoNames_$BASHPID"
 
   max_threads=5
-
-  sync="${scriptDir}/sync"
+  flock="yes"
 
   # Specify location of all local git repository path
   gits="${scriptDir}/../cached_repos"
+
+  syncOps=()
+  repos=()
 }
 
 EXIT_CMDS=(cleanUp)

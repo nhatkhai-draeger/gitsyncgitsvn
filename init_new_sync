@@ -9,7 +9,7 @@ source "$scriptDir/logging"
 showHelp () 
 {
   cat <<EOF
-`basename "$0"` [options] [{SVN_FOLDER_A}]
+`basename "$0"` [options] [Sync_Script_Options] [{SVN_FOLDER_A}]
 
 This script should be called by scheduler to sync change between SVN and Git 
 repositories.
@@ -19,21 +19,26 @@ Options:
   -h, --help
     Show this message.
 
-  -v, --verbose
-    Turn on detail run log
+  --noflock
+    Don't use flock - to avoid error for some system.
 
   -f, --force
     Try to force push to origin remote. This can remove the entile repos 
     history. Use with care.
 
-  --svnUrl SVN_URL 
-  --svnUser SVN_USER_NAME
-  --svnPwd SVN_USER_PASSWORD
+  -t, --threads N_MAX_THREADS
+      Specifiy maximum number of thread run at one time. (Default $max_threads)
 
-  --authors AUTHORS_FILE_LOCATION
-    Specify that svn user id map to git user id and email file. Each line
-    would be in following formular:
-       SVN_USER_ID=GIT_USER_ID <GIT_USER_EMAIL@XYZ.COM>
+  -v, --verbose
+    Turn on detail run log
+
+  -g, --gitDir GITS_PATH
+      Specifiy where all the synch git repositories location. 
+      (Default $gits)
+
+  --gitDot DOTGIT_FILES_LOCATION
+    Specify folder that contain .gitignore, .gitattribute, and other .git*
+    files to create an initial configuration for the git repository.
 
   --gitUrl GIT_URL
     GIT_URL is a base git url. The repository name will be assume the same as
@@ -41,10 +46,11 @@ Options:
       GIT_URL would be abc
       SVN_FOLDER_A would be xyz
 
-  --gitDot DOTGIT_FILES_LOCATION
-    Specify folder that contain .gitignore, .gitattribute, and other .git*
-    files to create an initial configuration for the git repository.
+Sync_Script_Options:
+  NOTE: Use full option names for passing value, use short option names for
+  not required passing value
 EOF
+"$sync" -h
 } # end of showHelp
 
 main()
@@ -53,23 +59,47 @@ main()
   error_files=()
 
   # Go through all arguments
-  while [[ "$1" != "" ]]; do
-    if [[ $1 =~ ^-h|--help$     ]]; then showHelp;                 return; fi
-    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";       shift; continue; fi
-    if [[ $1 =~ ^-f|--force$    ]]; then gitPushOpt="-f"; shift; continue; fi
+  while [[ ! -z "$1" ]]; do
+    if [[ $1 =~ ^-h|--help$     ]]; then showHelp; return; fi
 
+    if [[ $1 =~ ^--noflock$     ]]; then flock='no';              shift;        continue; fi
+    if [[ $1 =~ ^-f|--force$    ]]; then gitPushOpt="-f";         shift;        continue; fi
+    if [[ $1 =~ ^-t|--threads$  ]]; then max_threads=$2;          shift; shift; continue; fi
+    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";               shift;        continue; fi
+
+    if [[ $1 =~ ^-g|--gitDir$   ]]; then gits=`realpath "$2"`;    shift; shift; continue; fi
+    if [[ $1 =~ ^--gitDot$      ]]; then gitDOT=`realpath "$2"`;  shift; shift; continue; fi
+    if [[ $1 =~ ^--gitUrl$      ]]; then gitURL="$2";             shift; shift; continue; fi
+
+    # These are Sync Options
+    if [[ $1 =~ ^--authors$ ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
+    if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2";                 shift; shift; continue; fi
     if [[ $1 =~ ^--svnUrl$  ]]; then svnURL="$2";                 shift; shift; continue; fi
     if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2";                shift; shift; continue; fi
-    if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2";                 shift; shift; continue; fi
-    if [[ $1 =~ ^--authors$ ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
 
-    if [[ $1 =~ ^--gitDot$  ]]; then gitDOT=`realpath "$2"`;      shift; shift; continue; fi
-    if [[ $1 =~ ^--gitUrl$  ]]; then gitURL="$2";                 shift; shift; continue; fi
+    if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "$2");     shift; shift; continue; fi;
+    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1" "");       shift;        continue; fi;
 
-    if [[ $1 =~ ^--[a-z-]+$ ]]; then syncOps+=("$1" "$2");        shift; shift; continue; fi;
-
-    work_on "$1"; shift; continue;
+    repos+=("$1"); shift;
   done
+
+  # Check required option
+  exitIf '-z "$gitDOT"' 1 "Need to specify gitDot -- path where .git* files"
+  exitIf '-z "$gitURL"' 1 "Need to specify gitUrl"
+
+  exitIf '-z "$svnPwd"'  1 "Need to specify svnPwd"
+  exitIf '-z "$svnURL"'  1 "Need to specify svnUrl"
+  exitIf '-z "$svnUser"' 1 "Need to specify svnUser"
+  syncOps+=(--svnUrl "$svnURL" --svnUser "$svnUser" --svnPwd "$svnPwd")
+  if [[ -n "$authorFile" ]]; then syncOps+=(--authors "$authorFile"); fi
+
+  # Spin up threads
+  pushd "$gits"
+  for f in "${repos[@]}"; do 
+    waitNThreads "$logDir/" "/lock" "$max_threads" " on $f"
+    work_on "$f";
+  done
+  popd
 
   # Wait for all the process finished
   wait
@@ -89,15 +119,6 @@ main()
 
 work_on()
 {
-  exitIf '-z "$svnURL"' 1 "Need to specify svnUrl"
-  exitIf '-z "$gitURL"' 1 "Need to specify gitUrl"
-  exitIf '-z "$svnUser"' 1 "Need to specify svnUser"
-  exitIf '-z "$svnPwd"' 1 "Need to specify svnPwd"
-  exitIf '-z "$gitDOT"' 1 "Need to specify gitDOT -- path where .git* files"
-
-  sets=("${syncOps[@]}")
-  if [[ -n "$authorFile" ]]; then sets+=(--authors "$authorFile"); fi
-
   local svn_dir_name="$1"
   local git_dirname="${svn_dir_name// /}"
   git_dirname="${git_dirname//\//-}"
@@ -111,7 +132,7 @@ work_on()
   mkdir -p "$repoLogDir"
   (
     EXIT_CMDS=()
-    flock -n 9
+    if [[ "$flock" == "yes" ]]; then flock -n 9; fi
     exitIfErr 0 "Other process is still running. 
     If not, please remove $lock file."
 
@@ -137,14 +158,7 @@ work_on()
       git remote add origin "${gitURL}/${git_dirname}.git"
       exitIfErr 1 "Cannot add git remote"
 
-      ## TODO: This push make cause issue when sync failed, so disable it
-      ## for now
-      #git push ${gitPushOpt} origin HEAD:master
-      #exitIfErr 1 "Cannot push commits into remote server"
-
-      "${sync}" --init "$svn_dir_name" \
-        --svn "$svnURL" --svnUser "$svnUser" --svnPwd "$svnPwd" \
-        "${sets[@]}" || exit $?
+      "${sync}" --init "$svn_dir_name" "${syncOps[@]}" || exit $?
       popd
     ) &> "$repoLogDir/$logFile"
     exitIfErr 1 "++++++ $git_dirname is failed." '
@@ -176,14 +190,22 @@ cleanUp()
 
 setDefaultSettings()
 {
+  sync="${scriptDir}/sync"
+
   # Set default temp folder
   logFile="`basename "$0"`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
   logDir="/tmp/`basename "$scriptDir"`"
   local temp=`cygpath -m "$logDir"`
   if [ $? == 0 ]; then logDir=$temp; fi
 
-  sync="${scriptDir}/sync"
+  max_threads=5
+  flock="yes"
+
+  # Specify location of all local git repository path
+  gits="${scriptDir}/../cached_repos"
+
   syncOps=()
+  repos=()
 }
 
 EXIT_CMDS=(cleanUp)
