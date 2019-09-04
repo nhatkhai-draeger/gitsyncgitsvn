@@ -68,7 +68,7 @@ main()
     INFO "Sync all repositories in $gits"
     ls "$gits" -1 > "$respoNames" || exit $?
     while read f; do 
-      if [ -d "$gits/$f" ]; then repos+=("$f") fi
+      if [ -d "$gits/$f" ]; then repos+=("$f"); fi
     done < "$respoNames"
   fi
 
