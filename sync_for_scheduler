@@ -57,13 +57,15 @@ main()
     if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";                            shift;        continue; fi
 
     if [[ $1 =~ ^-g|--gitDir$   ]]; then gits=`realpath "$2"`;                 shift; shift; continue; fi
+    if [[ $1 =~ ^-l|--logDir    ]]; then logDir=`realpath "$2"`;               shift; shift; continue; fi 
 
     # These are Sync Options
-    if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "`tryRealPath "$2"`");  shift; shift; continue; fi;
-    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1");                       shift;        continue; fi;
+    if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "`tryRealPath "$2"`");  shift; shift; continue; fi
+    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1");                       shift;        continue; fi
 
     repos+=("$1"); shift;
   done
+  checkSettings
 
   if [[ -z $repos ]]; then
     # Sync all repository folders in $gits
@@ -176,10 +178,7 @@ setDefaultSettings()
 
   # Set default temp folder
   logFile="`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
-  logDir="/tmp/`basename "$scriptDir"`"
-  local temp=`cygpath -m "$logDir"`
-  if [ $? == 0 ]; then logDir=$temp; fi
-  respoNames="$logDir/respoNames_$BASHPID"
+  logDir="/tmp"
 
   max_threads=5
   flock="yes"
@@ -189,6 +188,15 @@ setDefaultSettings()
 
   syncOps=()
   repos=()
+}
+
+checkSettings()
+{
+  logDir="$logDir/`basename "$scriptDir"`"
+  local temp=`cygpath -m "$logDir"`
+  if [ $? == 0 ]; then logDir=$temp; fi
+
+  respoNames="$logDir/respoNames_$BASHPID"
 }
 
 EXIT_CMDS=(cleanUp)
