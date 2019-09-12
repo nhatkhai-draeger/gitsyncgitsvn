@@ -325,7 +325,8 @@ init_fetchNewSvnFolder()
     cat "'$filterLog'"'
 
   git checkout -f "$svnBranch"
-  exitIfErr 1 "Cannot switch to $svnBranch"
+  exitIfErr 1 "SVN folder may not existed (cannot switch to $svnBranch):" '
+    cat "'$filterLog'"'
   git reset --hard
 
   if [[ ! -z "$lfsFilter" ]]; then
