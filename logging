@@ -162,28 +162,6 @@ __log()
   fi
 }
 
-# 
-# Wait if there are too many thread already run
-#
-# $1 - base path to all lock files
-# $2 - lock files names
-# $3 - max threads
-# $4 - Wait message
-waitNThreads()
-{
-  local first=""
-  for (( ; ; )) do
-    local thcnt=`ls -1 "$1"*"$2" 2>/dev/null | wc -l`
-    if ((  $thcnt < $3 )); then break; fi 
-    if [[ -z "$first" ]]; then
-      first="no"
-      WARN "Wait for one of $thcnt thread finish, before start another 
-      sync thread$4"
-    fi
-    sleep 1
-  done
-}
-
 
 if [[ $1 == "--test" ]]; then
   LOG_LEVEL=$LOG_LEVEL_DEBUG

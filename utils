@@ -1,0 +1,54 @@
+#!/bin/bash
+#
+
+# 
+# Wait if there are too many thread already run
+#
+# $1 - base path to all lock files
+# $2 - lock files names
+# $3 - max threads
+# $4 - Wait message
+waitNThreads()
+{
+  local first=""
+  for (( ; ; )) do
+    local thcnt=`ls -1 "$1"*"$2" 2>/dev/null | wc -l`
+    if ((  $thcnt < $3 )); then break; fi 
+    if [[ -z "$first" ]]; then
+      first="no"
+      WARN "Wait for one of $thcnt thread finish, before start another 
+      sync thread$4"
+    fi
+    sleep 1
+  done
+}
+
+tryRealPath()
+{
+  if [[ -e "$1" ]]; then 
+    echo `realpath "$1"` 
+  else
+    echo $1
+  fi
+}
+
+isEqual()
+{
+  if [[ ! "$1" == "$2" ]]; then
+    echo "FAIL $1 != $2 :: $3"
+  else
+    echo "PASS $1 == $2 :: $3"
+  fi
+}
+
+if [[ $1 == "--test" ]]; then
+  pushd /
+  isEqual `tryRealPath "tmp"` "/tmp" "Folder exist"
+  isEqual `tryRealPath "tmp1"` "tmp1" "Not existing"
+
+  echo "hello" > tmp/tmp_$$
+  isEqual `tryRealPath "tmp/tmp_$$"` /tmp/tmp_$$ "File exist"
+  rm -f tmp/tmp_$$
+  isEqual `tryRealPath "tmp/tmp_$$"` tmp/tmp_$$ "File not exist"
+  popd
+fi

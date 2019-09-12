@@ -4,6 +4,7 @@
 #
 scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
 source "$scriptDir/logging"
+source "$scriptDir/utils"
 
 showHelp () 
 {
@@ -50,15 +51,16 @@ main()
   while [[ ! -z "$1" ]]; do
     if [[ $1 =~ ^-h|--help$     ]]; then showHelp;  return; fi
 
-    if [[ $1 =~ ^--noflock$     ]]; then flock='no';            shift;        continue; fi
-    if [[ $1 =~ ^-f|--force$    ]]; then force="yes";           shift;        continue; fi
-    if [[ $1 =~ ^-t|--threads$  ]]; then max_threads=$2;        shift; shift; continue; fi
-    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";             shift;        continue; fi
+    if [[ $1 =~ ^--noflock$     ]]; then flock='no';                           shift;        continue; fi
+    if [[ $1 =~ ^-f|--force$    ]]; then force="yes";                          shift;        continue; fi
+    if [[ $1 =~ ^-t|--threads$  ]]; then max_threads=$2;                       shift; shift; continue; fi
+    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";                            shift;        continue; fi
 
-    if [[ $1 =~ ^-g|--gitDir$   ]]; then gits=`realpath "$2"`;  shift; shift; continue; fi
+    if [[ $1 =~ ^-g|--gitDir$   ]]; then gits=`realpath "$2"`;                 shift; shift; continue; fi
 
-    if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "$2");   shift; shift; continue; fi;
-    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1");        shift;        continue; fi;
+    # These are Sync Options
+    if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "`tryRealPath "$2"`");  shift; shift; continue; fi;
+    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1");                       shift;        continue; fi;
 
     repos+=("$1"); shift;
   done

@@ -172,7 +172,7 @@ checkSettings()
 
   # Check of setting correctness
   if [ ! -f "$authorFile" ]; then
-    ERROR "`relPath "$authorFile"` is not found!"
+    ERROR "authorFile of $authorFile is not found!"
     ERROR "****** Going to extract from SVN log."
     getSvnCommiters
     myExit 1
