@@ -179,6 +179,10 @@ checkSettings()
   else
     local errWillbe="Cannot access to svn without username/password!"
   fi
+  if [[ ! -z "$APPDATA" ]]; then 
+    svnAccount+=(--config-dir "$APPDATA")
+  fi
+  DBG "svnAccount = ${svnAccount[@]}"
   printf "\n\n" | svn info "${svnAccount[@]}" "$svnURL" > /dev/null
   exitIfErr 1 "$errWillbe"
 
