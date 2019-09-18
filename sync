@@ -96,7 +96,7 @@ done
 checkSettings
 DBG      "## GIT, AND LFS CONFIGURATION ##"
 DBG_EVAL "which git-lfs" "git lfs env"
-DBG_EVAL "which git" "git version" "git config --list"
+DBG_EVAL "which git" "git version" "git config --show-origin --list"
 DBG "Use temp folder of $tmp"
 
 get_gitattributes
@@ -270,7 +270,7 @@ exitErrInfo()
 {
 INFO      "## GIT, AND LFS CONFIGURATION ##"
 INFO_EVAL "which git-lfs" "git lfs env"
-INFO_EVAL "which git" "git version" "git config --list"
+INFO_EVAL "which git" "git version" "git config --show-origin --list"
 }
 
 init_fetchNewSvnFolder()
