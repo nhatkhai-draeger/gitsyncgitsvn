@@ -183,8 +183,9 @@ checkSettings()
     svnAccount+=(--config-dir "$APPDATA")
   fi
   DBG "svnAccount = ${svnAccount[@]}"
-  printf "\n\n" | svn info "${svnAccount[@]}" "$svnURL" > /dev/null
-  exitIfErr 1 "$errWillbe"
+  printf "\n\n\n\n\n" | svn info "${svnAccount[@]}" "$svnURL" &> "$tmp/error"
+  exitIfErr 1 "$errWillbe. svn error:" '
+    cat "'$tmp'/error"'
 
   authorFile="`realpath "$authorFile"`"
 
@@ -328,8 +329,8 @@ init_fetchNewSvnFolder()
 
   # Send password twice because there was a case where svn asked for
   # password second times if the git-svn layout version not match
-  printf "$svnPwd\n$svnPwd\n" | git svn fetch --username "$svnUser" \
-    -A "$authorFile" 2> "$filterLog"
+  printf "$svnPwd\n$svnPwd\n$svnPwd\n$svnPwd\n$svnPwd\n" | \
+    git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
     cat "'$filterLog'"'
 
@@ -895,13 +896,10 @@ get_svnInfo()
 
 getSvnCommiters()
 {
-  printf "\n\n" | svn log "${svnAccount[@]}" \
-    -q "$svnURL" >"$tmp/svn_log" 2>"$tmp/error"
-  if [[ $? != 0 ]]; then 
-    ERROR "Cannot query SVN log due to following error:"
-    >&2 cat "$tmp/error"
-    myExit $?; 
-  fi
+  printf "\n\n\n\n\n" | svn log "${svnAccount[@]}" -q "$svnURL" \
+    >"$tmp/svn_log" 2>"$tmp/error"
+  exitIfErr 1 "Cannot query SVN log due to following error:" '
+    cat "'$tmp'/error"'
 
   cat "$tmp/svn_log" \
     | awk -F '|' \
