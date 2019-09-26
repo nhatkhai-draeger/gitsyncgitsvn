@@ -72,7 +72,7 @@ setDefaultSettings
 while [[ ! -z "$1" ]]; do
   if [[ $1 =~ ^-h|--help$         ]]; then showHelp; return; fi
 
-  if [[ $1 =~ ^--authors$         ]]; then authorFile="$2";             shift; shift; continue; fi
+  if [[ $1 =~ ^--authors$         ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
   if [[ $1 =~ ^--gitUrl$          ]]; then gitURL="$2";                 shift; shift; continue; fi
   if [[ $1 =~ ^--ignore-paths     ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
   if [[ $1 =~ ^--init$            ]]; then init=("$2");                 shift; shift; continue; fi
@@ -82,7 +82,7 @@ while [[ ! -z "$1" ]]; do
 
   if [[ $1 =~ ^-b|--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
   if [[ $1 =~ ^-d|--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
-  if [[ $1 =~ ^-e|--email$        ]]; then emailFile="$2";              shift; shift; continue; fi
+  if [[ $1 =~ ^-e|--email$        ]]; then emailFile=`realpath "$2"`;   shift; shift; continue; fi
   if [[ $1 =~ ^-m|--mergeSync$    ]]; then rebaseSync="no";             shift;        continue; fi
   if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt="-n $dcommitOpt"; shift;        continue; fi
   if [[ $1 =~ ^-p|--prompt$       ]]; then prompt="yes";                shift;        continue; fi
@@ -258,7 +258,7 @@ cleanUp()
 {
   if [[ -f "$emailFile" ]]; then
     INFO      "Committers' email:"
-    INFO_EVAL "cat $emailFile"
+    INFO_EVAL "cat \"${emailFile}\""
   fi
 
   #TODO: Unlock SVN folder

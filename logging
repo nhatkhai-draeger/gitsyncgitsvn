@@ -141,8 +141,9 @@ __log()
     local first="${pre}"
     local out=""
     while [ $# -gt 0 ]; do
-      local tmp=`$ext "$1"`
-      out="${out}${first}>$1\n${tmp//\\/\\\\}"
+      local a="${1//\\/\\\\}"
+      local tmp=`$ext "$a"`
+      out="${out}${first}>$a\n${tmp//\\/\\\\}"
       shift;
       first="\n"
     done
