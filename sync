@@ -415,7 +415,7 @@ syncSVNtoGIT()
   exitIfErr 1 "Cannot create a temporary branch $tryLfsMerge"
 
   # Extract list of committers' email
-  git log --pretty:format:%ce $svnSHA1..$svnNewSHA1 | sort -u >> "${emailFile}"
+  git log --pretty=format:%ce $svnSHA1..$svnNewSHA1 | sort -u >> "${emailFile}"
 
   if [[ ! -z "$lfsFilter" ]]; then
     INFO "** Apply LFS setting on new SVN commits on $svnRemote"
@@ -569,7 +569,7 @@ syncGITtoSVN()
   INFO "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
 
   # Extract list of committers' email
-  git log --pretty:format:%ce $lfsBranch..$gitSHA | sort -u >> "${emailFile}"
+  git log --pretty=format:%ce $lfsBranch..$gitSHA | sort -u >> "${emailFile}"
 
   local uncommitedCnt=0
   if [ $gitSHA == $mergeBaseSHA1 ]; then
