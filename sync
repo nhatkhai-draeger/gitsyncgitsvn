@@ -391,7 +391,8 @@ syncSVNtoGIT()
   git reset --hard
 
   #TODO: Lock SVN Folder
-  echo $svnPwd | git svn fetch --username "$svnUser" \
+  printf "$svnPwd\n" | \
+    git svn fetch --username "$svnUser" \
     -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 "Cannot fetch commits from SVN! due to:" '
     cat "'$filterLog'"'
@@ -729,7 +730,8 @@ syncGITtoSVN()
     fi
 
     INFO "****** Do DCommit to push git commits into SVN server"
-    echo $svnPwd | git svn dcommit --username "$svnUser" \
+    printf "$svnPwd\n" | \
+      git svn dcommit --username "$svnUser" \
       --use-log-author --add-author-from \
       "${dcommitOpt[@]}" $tryMerge 2> "$filterLog"
     exitIfErr 1 "dcommit failed with following message:" '
@@ -748,6 +750,24 @@ syncGITtoSVN()
     if [ "$prompt" == "yes" ]; then
       read -p "Check $svnRemote before update branches.Press Enter...."
     fi
+
+    # TODO REMOVE THIS TEST BLOCK
+    # This block to help debugging the dcommit issue if for committedCnt
+    # received value of 0 in some observed cases
+    # {
+    printf "$svnPwd\n" | \
+      git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
+    exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
+      cat "'$filterLog'"'
+    local newCommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
+    local  committedCnt=`git rev-list --count "$svnBranch".."$svnRemote"`
+    ((uncommittedCnt = newCommitCnt - committedCnt ))
+    INFO "#2 There is $uncommittedCnt/$newCommitCnt uncommitted into SVN server"
+
+    if [ "$prompt" == "yes" ]; then
+      read -p "Check $svnRemote before update branches.Press Enter...."
+    fi 
+    # }
 
     INFO "****** Try to update $lfsBranch and $gitBranch after dcommits"
 
