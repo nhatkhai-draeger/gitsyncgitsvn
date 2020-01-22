@@ -665,9 +665,12 @@ syncGITtoSVN()
       git checkout-index -f -- .gitmodules
       if [ $? == 0 ]; then
         sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
-          | while read f; do git rm -rf -- "$f"; done
+          | while read f; do 
+            rm -rf -- "$f" 
+          done
         git rm -f .gitmodules
       fi
+      git checkout-index -f -- .gitattributes
       git rm -f .gitattributes
 
       git diff "'$svnRemote'" --cached --name-only --diff-filter=d \
@@ -703,9 +706,12 @@ syncGITtoSVN()
       git checkout-index -f -- .gitmodules
       if [ $? == 0 ]; then
         sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
-          | while read f; do git rm -rf -- "$f"; done
+          | while read f; do 
+            rm -rf -- "$f"
+          done
         git rm -f .gitmodules
       fi
+      git checkout-index -f -- .gitattributes
       git rm -f .gitattributes
       ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
       exitIfErr 1 "Cannot remove submodule settings from git commits!" '
