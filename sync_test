@@ -1,0 +1,316 @@
+#!/bin/bash 
+#!/bin/bash -x
+scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
+source "$scriptDir/logging"
+
+LOG_SKIP="\e[1m\e[49m\e[39mSKIP\e[0m\e[49m\e[39m"
+LOG_PASS="\e[1m\e[42m\e[97mPASS\e[0m\e[49m\e[39m"
+LOG_FAIL="\e[1m\e[41m\e[97mFAIL\e[0m\e[49m\e[39m"
+
+showHelp () 
+{
+  cat <<EOF
+`basename "$0"` [options] [TESTNAME...]
+
+Run any or all tests
+
+Options:
+
+  -h, --help
+    Display this message
+
+  -l, --list
+    List all avaliable test cases
+
+  -v, --verbose
+    Show test output as it run
+
+  -logLevel NUMBER
+    Control which log level use while run test. 0 for ERROR, 1 to WARN, 2
+    for NOTE, 3 for INFO, 4 for DEBUG
+
+  -d TEST_SCRIPT, --disable TEST_SCRIPT
+    Skip run TEST_SCRIPT test script. Such as "cleanup", "env_setup"
+
+  -i, --ignore
+    Ignore all the test dependency and run only one that specified.
+
+  -f, --failFast
+    Stop on the first detected fail test
+EOF
+} # end of showHelp
+
+main () 
+{
+  setDefaultSettings
+
+  # Go through all arguments
+  while [[ ! -z "$1" ]]; do
+    if [[ $1 =~ ^-h|--help$     ]]; then showHelp;    return; fi
+    if [[ $1 =~ ^-l|--list$     ]]; then getAllTests; return; fi
+
+    if [[ $1 =~ ^-v|--verbose$  ]]; then verbose='y';      shift;        continue; fi
+    if [[ $1 =~ ^-logLevel$     ]]; then testLogLvl=$2;    shift; shift; continue; fi
+    if [[ $1 =~ ^-d|--disable$  ]]; then disableTest "$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^-i|--ignore$   ]]; then ignoreDep='y';    shift;        continue; fi
+    if [[ $1 =~ ^-f|--failFast$ ]]; then failFast='y';     shift;        continue; fi
+
+    if [[ $1 =~ ^-.* ]]; then INFO "Unknown argument $1";  exit 2; fi
+    tests+=("$1"); shift;
+  done
+
+  checkSetting
+
+  local runCnt=0
+  local passCnt=0
+  local failCnt=0
+  for test in "${tests[@]}"; do 
+    # Try to find the correct test script name from user style name
+    if [[ ! -f "$scriptDir/tests/$test.sh" ]]; then
+      test=`echo $test | sed -En "s/^(.*\/)?([^\]+)$/\1test_\2/p"`
+    fi
+
+    # Execute a specified test case
+    (
+      printf "EXECUTING $test..\r"
+      echo 0 > "$tmp/maxScopeLvl"
+      runTest "$test" 2>&1 | while IFS= read line; do
+        echo "$line" >> "$tmp/$test.log"
+        if [[ ! -z $verbose ]]; then
+          echo "`cat "$tmp/curTestName"` $line"
+        fi
+      done
+      printf "\e[K" # Clear line from current cursor
+    )
+
+    # Analyze the test script result
+    local result=`cat "$tmp/$test.exitCode"`
+    
+    case "$result" in
+      "PASS "* )
+        (( runCnt=runCnt  + 1))
+        ((passCnt=passCnt + 1))
+        NOTE "$LOG_PASS $test ${result:5: -1}" 
+        ;;
+      SKIP )
+        NOTE "$LOG_SKIP $test" 
+        ;;
+      *    ) # Fail case
+        (( runCnt=runCnt  + 1 ))
+        ((failCnt=failCnt + 1 ))
+        NOTE "$LOG_FAIL $test (${result})"
+        ;;
+    esac
+
+    # Stop of any test fail detected
+    if [[ ! -z $failFast && -f "$tmp/failList" ]]; then break; fi
+
+  done # end of tests loop
+
+  # Report test summary
+  echo
+  DBG "Test hierarchy:" "\n`cat "$tmp/testHierarchy"`"
+
+  if [[ -f "$tmp/failList" ]]; then
+    WARN "Following $failCnt fail(s) out of $runCnt ran tests:\n`cat "$tmp/failList"`"
+  fi
+  local skipCnt=0
+  ((skipCnt=${#tests[@]}-failCnt-passCnt))
+  if [[ $skipCnt -ne 0 ]]; then
+    WARN "SKIPPED $skipCnt / ${#tests[@]} requested tests"
+  fi
+  NOTE "PASSED $passCnt / $runCnt ran tests"
+
+  cleanUp
+  exit $failCnt
+} # End of main
+
+# Search and print all test cases
+getAllTests()
+{
+  if [[ ! -f "$tmp/all_test_scripts" ]]; then
+    pushd "$scriptDir/tests/" >/dev/null
+    find . -iname "test*.sh" | sed -En "s/^\.\/test_(.*)\.sh$/\1/p" \
+      > "$tmp/all_test_scripts"
+    popd >/dev/null
+  fi
+  cat "$tmp/all_test_scripts"
+}
+
+# execute a specified test script in $1
+runTest()
+{
+  local test=`normalTest "$1"`
+
+  # Check if the test already executed
+  if [[ -f "$tmp/$test.exitCode" ]]; then return; fi
+
+  (
+    set +e # Disable error propagation
+    (
+      testname="               $test"
+      printf "[${testname: -15}]" > "$tmp/curTestName"
+      LOG_PREFIX=( "${LOG_PREFIX[@]:1}" )
+
+      runTestFailCnt=0
+      runTestPassCnt=0
+
+      runScope+=("$test")
+      echo ${#runScope[@]}   > "$tmp/maxScopeLvl"
+
+      echo RUNNING > "$tmp/$test.exitCode"
+      LOG_LEVEL=$testLogLvl
+      set -e # Enable error propagation
+      source "$scriptDir/tests/$test.sh"
+      set +e # Disable error propagation
+      echo PASS    > "$tmp/$test.exitCode"
+
+      echo "${runScope[*]}" >>"$tmp/testHierarchy"
+
+      ((check=runTestPassCnt+runTestFailCnt))
+      if [[ $runTestFailCnt -ne 0 ]]; then
+      # When test has some assertion, record it fail result
+        result="$runTestFailCnt fails of $check checks"
+        echo $result            > "$tmp/$test.exitCode"
+        echo "$test ($result)" >> "$tmp/failList"
+      else
+        echo "PASS ($check checks) " > "$tmp/$test.exitCode"
+      fi
+    )
+    err=$? 
+    echo "[${testname: -15}]" > "$tmp/curTestName"
+
+    # Check current exit code not been propagated
+    if (( `cat "$tmp/maxScopeLvl"` == ${#runScope[@]}+1 )); then
+      if [[ $err -ne 0 ]]; then
+      # When test exit with error, record is fail result
+        result="exit with $err"
+        echo $result             > "$tmp/$test.exitCode"
+        echo "$test ($result)"  >> "$tmp/failList"
+      else
+      # When test exit without error, decrease maximum scope level for
+      # success test
+        echo ${#runScope[@]} > "$tmp/maxScopeLvl"
+      fi
+    fi
+
+    # Propagate error to the parent level if there is and error
+    set -e # Enable error propagation
+    if [[ $err -ne 0 ]]; then (exit $err); fi 
+  )
+}
+
+# mark a specified test script in $1 to be exclude from execution
+disableTest()
+{
+  local test=`normalTest "$1"`
+  echo SKIP > "$tmp/$test.exitCode"
+}
+
+# normalize the test script name to user readable format
+normalTest()
+{
+  local test=$1
+  test="${test%.sh}"
+  echo ${test}
+}
+
+setDefaultSettings()
+{
+  curDir="`pwd`"
+  tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID"
+  mkdir "$tmp"
+
+  tests=()
+  testLogLvl=$LOG_LEVEL_INFO
+  ignoreDep=''
+  verbose=''
+  failFast=''
+
+  runScope=()
+  testname="               "
+} # End of setDefaultSettings
+
+checkSetting()
+{
+  if [[ ${#tests[*]} -eq 0 ]]; then 
+    getAllTests > "$tmp/tests"
+    while read f; do
+      tests+=("$f")
+    done < "$tmp/tests"
+  fi
+}
+
+cleanUp()
+{
+  rm -rf "${tmp}"
+}
+
+# This design to call from test script
+# To print out the test name on console
+TEST()
+{      
+  __log "`caller`" $LOG_LEVEL_NOTE  "\e[1m\e[104m\e[97m TEST" "" "$@"
+}
+
+# This design to call from test script
+# The executing script mean for run a required test/dependency once.
+# It should not be use to setup share variables because it may execute in a
+# sub-shell
+runOnce()
+{
+  if [[ ${#runScope[@]} -eq 0 ]]; then
+    ERROR This method not design to be call directly
+    exit 1;
+  fi
+  if [[ ! -z "$ignoreDep" ]]; then return; fi
+  runTest "$1"
+}
+
+# This design to call from test script
+# The executing script mean for be setting variables and can be call many
+# times. So it must not execute in a sub-shell
+runMany()
+{
+  if [[ ${#runScope[@]} -eq 0 ]]; then
+    ERROR This method not design to be call directly
+    exit 1;
+  fi
+  local test=`normalTest "$1"`
+  echo RUNNING > "$tmp/$test.exitCode"
+  source "$scriptDir/tests/$test.sh"
+  echo PASS    > "$tmp/$test.exitCode"
+}
+
+# This design to call from test script
+# Check if $1 $2 $3 condition print pass/fail result with message of $4
+# 
+# It also count number of pass and fail tests
+#
+# For example Assert a -eq b "a expected to equal b"
+Assert()
+{
+  errCode=$?
+  if [[ ${#runScope[@]} -eq 0 ]]; then
+    ERROR This method not design to be call directly
+    exit 1;
+  fi
+
+  local msg=''
+  if [[ ! -z "$4" ]]; then msg=":: $4"; fi
+
+  msg="[[`eval echo "$1" "$2" "$3"`]] $msg"
+  local cond=`eval if "[[" $1 $2 $3 "]];" then echo "1;" fi`
+  if [[ "$cond" == "1" ]]; then
+    __log "`caller`" $LOG_LEVEL_INFO "$LOG_INFO" "" "$LOG_PASS $msg"
+    ((runTestPassCnt=runTestPassCnt+1))
+  else
+    __log "`caller`" $LOG_LEVEL_INFO "$LOG_INFO" "" "$LOG_FAIL $msg"
+    ((runTestFailCnt=runTestFailCnt+1))
+  fi
+}
+
+LOG_PREFIX=("[---------------]" "${LOG_PREFIX[@]}")
+INFO "Started on `date`"
+EXIT_CMDS=(cleanUp)
+main "$@"
