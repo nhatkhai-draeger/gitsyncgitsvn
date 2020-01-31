@@ -47,6 +47,9 @@ Options:
       GIT_URL would be abc
       SVN_FOLDER_A would be xyz
 
+  -l, --logDir LOG_DIR
+    Specify where to storage all the log files
+
 Sync_Script_Options:
   NOTE: Use full option names for passing value, use short option names for
   not required passing value
@@ -80,7 +83,7 @@ main()
     if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2";                             shift; shift; continue; fi
 
     if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "`tryRealPath "$2"`");  shift; shift; continue; fi;
-    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1" "");                    shift;        continue; fi;
+    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1");                       shift;        continue; fi;
 
     repos+=("$1"); shift;
   done
@@ -124,6 +127,7 @@ work_on()
 {
   local svn_dir_name="$1"
   local git_dirname="${svn_dir_name// /}"
+  local name="              $git_dirname"
   git_dirname="${git_dirname//\//-}"
 
   local repoLogDir="$logDir/${git_dirname}"
@@ -151,62 +155,65 @@ work_on()
   fi
 
   mkdir -p "$repoLogDir"
+  echo > "$repoLogDir/$logFile"
   (
     EXIT_CMDS=()
     if [[ "$flock" == "yes" ]]; then flock -n 9; fi
     exitIfErr 0 "Other process is still running. 
     If not, please remove $lock file."
-
-    EXIT_CMDS=("rm -f \"$lock\"")
+    EXIT_CMDS=("rm -f \"$lock\" 2>/dev/null")
+    
     INFO "++++ Initialize $git_dirname...."
+
+    if [[ -f "$errPath" && "$force" == "yes" ]]; then
+      WARN "Removing previous run failed log $errPath"
+      rm -f "$errPath"
+    fi
+
+    if [[ -d "${git_dirname}" && "$force" == "yes" ]]; then
+      WARN "Removing old ${git_dirname}"
+      rm -rf "${git_dirname}"
+    fi
+
+    rm -f "$repoLogDir/errCode"
     (
-      if [[ -f "$errPath" && "$force" == "yes" ]]; then
-        WARN "Removing previous run failed log $errPath"
-        rm -f "$errPath"
+      (
+        mkdir -p "${git_dirname}"
+        pushd "${git_dirname}"
+        exitIfErr 1 "Cannot create folder $git_dirname"
+
+        INFO "# Make initial local repos"
+        git init
+        cp "${gitDOT}/.git"* .
+        exitIfErr 1 "Cannot copy .git* files from $gitDOT"
+
+        git add .git*
+        git commit -m "Initial repo setting"
+        exitIf '$errCode -gt 1' 1 "Cannot make initial commit"
+
+        git remote add origin "${gitURL}/${git_dirname}.git"
+        exitIfErr 1 "Cannot add git remote"
+
+        cmd=("${sync}" --init "$svn_dir_name" "${syncOps[@]}")
+        DBG ">${cmd[@]}"
+        "${cmd[@]}"
+        exitIfErr 1 "Cannot initialize"
+        popd
+      ) || echo $? > "$repoLogDir/errCode" 
+    ) 2>&1 | while IFS= read line; do
+      echo "$line" >> "$repoLogDir/$logFile";
+      if [ "$veb" == "yes" ]; then
+        echo "  [${name: -15}] $line"
       fi
+    done
 
-      if [[ -d "${git_dirname}" && "$force" == "yes" ]]; then 
-        WARN "Removing old ${git_dirname}"
-        rm -rf "${git_dirname}" 
-      fi
-
-      mkdir -p "${git_dirname}" 
-      pushd "${git_dirname}"
-      exitIfErr 1 "Cannot create folder $git_dirname"
-
-      git init
-      cp "${gitDOT}/.git"* .  
-      exitIfErr 1 "Cannot copy .git* files from $gitDOT"
-
-      git add .git*
-      git commit -m "Initial repo setting"
-      exitIf '$errCode -gt 1' 1 "Cannot make initial commit"
-
-      git remote add origin "${gitURL}/${git_dirname}.git"
-      exitIfErr 1 "Cannot add git remote"
-
-      "${sync}" --init "$svn_dir_name" "${syncOps[@]}" || exit $?
-      popd
-    ) &> "$repoLogDir/$logFile"
-    exitIfErr 1 "++++++ $git_dirname is failed." '
-      ln -f "$repoLogDir/$logFile" "$errPath"
-    '
+    exitIf '-f "$repoLogDir/errCode"' 1 \
+      "++++++ $git_dirname is failed." \
+      'ln -sf "$repoLogDir/$logFile" "$errPath"'
 
     INFO "+++++++ $git_dirname is initialized."
     exitClean
   ) 9> "$lock" &
-
-  if [ "$veb" == "yes" ]; then
-    for (( i=0 ; i<10 ; i++ )) do
-      if [[ -f "$repoLogDir/$logFile" ]]; then 
-        local name="              $git_dirname"
-        tail -f --pid $! "$repoLogDir/$logFile" \
-          | sed -e "s/^/\[${name: -15}\] /" 2>/dev/null &
-        break;
-      fi
-      sleep 1
-    done
-  fi
 }
 
 cleanUp()
