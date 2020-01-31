@@ -99,6 +99,7 @@ main ()
         (( runCnt=runCnt  + 1 ))
         ((failCnt=failCnt + 1 ))
         NOTE "$LOG_FAIL $test (${result})"
+        echo "$test ($result)" >> "$tmp/failList"
         ;;
     esac
 
@@ -112,14 +113,21 @@ main ()
   DBG "Test hierarchy:" "\n`cat "$tmp/testHierarchy"`"
 
   if [[ -f "$tmp/failList" ]]; then
-    WARN "Following $failCnt fail(s) out of $runCnt ran tests:\n`cat "$tmp/failList"`"
+    ERROR "Following $failCnt fail(s) out of $runCnt ran tests:" \
+      "\n`sort -u "$tmp/failList"`"
   fi
   local skipCnt=0
   ((skipCnt=${#tests[@]}-failCnt-passCnt))
   if [[ $skipCnt -ne 0 ]]; then
     WARN "SKIPPED $skipCnt / ${#tests[@]} requested tests"
   fi
-  NOTE "PASSED $passCnt / $runCnt ran tests"
+
+  local str=()
+  if [[ $failCnt -ne 0 ]]; then str+=("$failCnt FAIL"); fi
+  if [[ $passCnt -ne 0 ]]; then str+=("$passCnt PASS"); fi
+  ( IFS=", "
+    NOTE "${str[*]} out of $runCnt ran tests"
+  )
 
   cleanUp
   exit $failCnt
@@ -158,7 +166,7 @@ runTest()
       runScope+=("$test")
       echo ${#runScope[@]}   > "$tmp/maxScopeLvl"
 
-      echo RUNNING > "$tmp/$test.exitCode"
+      echo INCOMPLETED > "$tmp/$test.exitCode"
       LOG_LEVEL=$testLogLvl
       set -e # Enable error propagation
       source "$scriptDir/tests/$test.sh"
