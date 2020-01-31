@@ -182,10 +182,9 @@ checkSettings()
   if [[ ! -z "$APPDATA" ]]; then 
     svnAccount+=(--config-dir "${APPDATA//\\/\/}")
   fi
-  DBG "svnAccount = ${svnAccount[@]}"
   printf "\n\n\n\n\n" | svn info "${svnAccount[@]}" "$svnURL" &> "$tmp/error"
   exitIfErr 1 "$errWillbe. svn error:" '
-    cat "'$tmp'/error"'
+    cat "'"$tmp/error"'"'
 
   authorFile="`realpath "$authorFile"`"
 
@@ -223,7 +222,9 @@ checkSettings()
     done
     temp2=$svnURL/$temp2
     git config --local --replace-all svn-remote.svn.url "$temp2"
-    NOTE "Move SVN URL to $temp2 from $temp"
+    if [[ ! -z "$temp" ]]; then
+      NOTE "Move SVN URL to $temp2 from $temp"
+    fi
   fi
 
   if [ -z "$gitURL" ]; then
@@ -238,7 +239,7 @@ checkSettings()
 
   if [[ ! -z "$status" ]]; then
   # Try again with lfs uninstalled
-    git lfs uninstall --local
+    git lfs uninstall --local 2>/dev/null
     status=`git status -s` &> /dev/null
     exitIfErr 1 "$repoDir is not a git folder.\n\
       Please switch to git directory."
@@ -269,9 +270,11 @@ cleanUp()
 
 exitErrInfo()
 {
-INFO      "## GIT, AND LFS CONFIGURATION ##"
-INFO_EVAL "which git-lfs" "git lfs env"
-INFO_EVAL "which git" "git version" "git config --show-origin --list"
+  if [[ $LOG_LEVEL -lt $LOG_LEVEL_DEBUG ]]; then
+    INFO      "## GIT, AND LFS CONFIGURATION ##"
+    INFO_EVAL "env" "which git-lfs" "git lfs env"
+    INFO_EVAL "which git" "git version" "git config --show-origin --list"
+  fi
 }
 
 init_fetchNewSvnFolder()
@@ -287,11 +290,7 @@ init_fetchNewSvnFolder()
   svnFolder="${1//\//-}"
   svnRemote="svn-${svnFolder// /}"
   svnBranch="svn/${svnFolder// /}"
-  if [[ ! -z "$lfsFilter" ]]; then
-    lfsBranch="svn/lfs/${svnFolder// /}"
-  else
-    lfsBranch="$svnBranch"
-  fi
+  lfsBranch="svn/lfs/${svnFolder// /}"
 
   local curBranch=`getCurBranch`
   if [[ "$curBranch" == "$lfsBranch" ]] || \
@@ -325,7 +324,7 @@ init_fetchNewSvnFolder()
   exitIfErr 1 "Cannot checkout empty orphan branch of $svnRemote!"
 
   git reset --hard 2> /dev/null
-  git lfs uninstall --local
+  git lfs uninstall --local 2>/dev/null
 
   # Send password twice because there was a case where svn asked for
   # password second times if the git-svn layout version not match
@@ -339,12 +338,12 @@ init_fetchNewSvnFolder()
     cat "'$filterLog'"'
   git reset --hard
 
-  if [[ ! -z "$lfsFilter" ]]; then
-    INFO "****** Create new branch $lfsBranch"
-    git branch "$lfsBranch" "$svnRemote"
-    exitIfErr 1 "Cannot create $lfsBranch branch"
+  INFO "****** Create new branch $lfsBranch"
+  git branch "$lfsBranch" "$svnRemote"
+  exitIfErr 1 "Cannot create $lfsBranch branch"
 
-    git lfs uninstall --local
+  if [[ ! -z "$lfsFilter" ]]; then
+    git lfs uninstall --local 2>/dev/null
 
     INFO "****** Rebase SVN commits with lfs settings"
     # This WORKAROUND help git lfs migrate work more effective
@@ -422,31 +421,26 @@ syncSVNtoGIT()
     INFO "** Apply LFS setting on new SVN commits on $svnRemote"
 
     INFO "Repair, and find new binary file for apply LFS"
-    printf "$lfsFilter" > ${tmp}/.lfsFilter
     git filter-branch --prune-empty -f --index-filter '
       cp "'"${tmp}"'/.gitattributes" .gitattributes 
       git diff "'${svnBranch}'" --cached --name-only --diff-filter=ACR \
         | while read f; do
-        git check-attr filter "$f" | grep "filter: unspecified$" > /dev/null
-        if [ $? != 0 ]; then continue; fi
+          git check-attr filter "$f" | grep "filter: unspecified$" >/dev/null
+          if [ $? != 0 ]; then continue; fi
 
-        git checkout-index -f -- "$f" 
-        echo "$f" | perl -lne "exit 1 if -B"
-        if [ $? == 0 ]; then continue; fi
+          git checkout-index -f -- "$f" 
+          echo "$f" | perl -lne "exit 1 if -B"
+          if [ $? == 0 ]; then continue; fi
 
-        printf "\r"
-        git lfs track "$f"
-        printf ",$f">> '"${tmp}"'/.lfsFilter
-      done
+          printf "\r"
+          git lfs track "$f"
+        done
 
       git add .gitattributes
       cp .gitattributes "'"${tmp}"'/.gitattributes" 
       ' -- "${svnBranch}".."${tryLfsMerge}" 2> "$filterLog"
     exitIfErr 1 "Cannot apply LFS setting on new SVN commits!" '
       cat "'$filterLog'"'
-
-    lfsFilter=`cat "${tmp}/.lfsFilter"`
-    DBG "Current LFS Filter: $lfsFilter"
 
     if [ "$prompt" == "yes" ]; then
       read -p "Check if .gitattributes up-date correctly for new LFS files..."
@@ -468,7 +462,8 @@ syncSVNtoGIT()
   fi
 
   INFO "Now rebase onto $lfsBranch"
-  local oldHead=''
+  local oldHead='a'
+  local newHead=''
   git rebase -s recursive -X theirs \
     --onto "$lfsBranch" "$svnBranch" "$tryLfsMerge"
 
@@ -476,7 +471,9 @@ syncSVNtoGIT()
   # solve - such as:
   # * Removed files from git, but detected modified from SVN
   while [[ $? != 0 ]]; do
-    local newHead=`git log REBASE_HEAD -1 --format=%H`
+    newHead=`git log REBASE_HEAD -1 --format=%H 2>/dev/null` \
+    || newHead=`cat .git/rebase-merge/stopped-sha 2>/dev/null` \
+    || newHead=`cat .git/rebase-merge/orig-head` \
 
     INFO "**** Try to resolve conflict automatically at $newHead"
 
@@ -493,7 +490,7 @@ syncSVNtoGIT()
     cat "$tmp/gitStatus"
 
     # Conflict ".D"
-    # * A file deleted from git 
+    # * A file deleted from svn 
     sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
       | while read f; do git rm -f "$f"; done
 
@@ -594,60 +591,116 @@ syncGITtoSVN()
     git branch -f "$tryMerge" "$gitBranch"
     exitIfErr 1 "Cannot create branch from $gitBranch"
 
-    git lfs uninstall --local
+    git lfs uninstall --local 2>/dev/null
 
-    local oldHead=''
+    echo '
+      rm -f "'"$tmp\rebaseWorkAmend"'"
+      find . -iname ".gitmodules" -type f | while read ff; do
+        pushd "`dirname "$ff"`"
+        sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
+          | while read f; do
+            rm -rf "$f"
+            git add -v "$f"
+          done
+        echo >"'"$tmp\rebaseWorkAmend"'"
+        popd
+      done
+
+      find . -type f -iname ".git*" ! -iname ".gitmodules" \
+        | while read ff; do
+          git rm -f "$ff"
+          echo >"'"$tmp\rebaseWorkAmend"'"
+        done
+    ' > "$tmp/rebaseWork"
+
+    if [[ ! -z "$lfsFilter" ]]; then
+      echo '
+        git diff "'"$svnRemote"'" HEAD~1 --name-only --diff-filter=d \
+          | while read f; do
+          head -2 "$f" | sed -ne "s/^oid sha256:\([^ ]*\)/\1/p" \
+            | while read ref; do
+            ref="'"$tmp"'/lfs-$ref"
+            if [ ! -f "$ref" ]; then
+              cat "$f" | git lfs smudge > "$ref"
+              if [ $? != 0 ]; then 
+                rm -f "$ref"
+                >&2 echo "  Cannot remove LFS pointer for $f"
+                exit 3
+              fi
+              echo "  Remove LFS pointer on $f"
+            fi
+            cp -f "$ref" "$f"
+            git add "$f"
+            echo >"'"$tmp\rebaseWorkAmend"'"
+            break
+          done
+        done
+      ' >> "$tmp/rebaseWork"
+    fi
+      
+    echo '
+      if [[ -f "'"$tmp\rebaseWorkAmend"'" ]]; then
+        git commit --amend --allow-empty -C HEAD
+
+        # Code use to debug this process
+        if [ "'$prompt'" == "yes" ]; then
+          printf "Check before continue rebase...."
+          read
+        fi
+      fi
+    ' >> "$tmp/rebaseWork"
+
+    local oldHead='a'
+    local newHead=''
     # WARNING: This rebase process may skip some commits
-    git rebase -s recursive -X theirs \
+    git rebase -s recursive -X theirs --exec "source \"$tmp/rebaseWork\""\
       --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge" 2> "$tmp/rebase"
 
     # This loop try to resolve some of the conflict that can be simply 
     # solve - such as:
     # * Removed files from git, but detected modified from SVN
     while [[ $? != 0 ]]; do
-      local newHead=`git log REBASE_HEAD -1 --format=%H`
+      newHead=`git log REBASE_HEAD -1 --format=%H 2>/dev/null` \
+      || newHead=`cat .git/rebase-merge/stopped-sha 2>/dev/null` \
+      || newHead=`cat .git/rebase-merge/orig-head` \
 
       INFO "**** Try to resolve conflict automatically at $newHead"
 
       if [[ $newHead == $oldHead ]]; then 
         ERROR "Cannot rebase $gitBranch branch onto of $svnRemote!"
+        if [ "$prompt" == "yes" ]; then 
+          read -p "Check why rebase is failed..."
+        fi 
         git lfs install --local
         git rebase --abort
         myExit 1
       fi
 
-      # Conflict "UD" - " unmerged, Deleted by theirs (master)
-      # * A file added from SVN but remove by master
       git status --porcelain > "$tmp/gitStatus"
       cat "$tmp/gitStatus"
-      sed -ne "s/^UD \(.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do git rm -f "$f"; done
 
-      # Handling submodule issues
-      #
-      # Obtain submodule files of any from master
-      git show REBASE_HEAD:.gitmodules > "$tmp/.gitmodules" 2>/dev/null
-      if [ $? == 0 ]; then
-        sed -ne "s/^\(M \|UU\|DU\) \(.*\)$/\2/p" "$tmp/gitStatus" \
-          | while read f; do
-          if grep -i "= *$f *$" "$tmp/.gitmodules"; then
-            git reset -- "$f";
-          fi; 
+      rm -f "$tmp\rebaseWorkAmend"
+      # Conflict "*D" - " Deleted by theirs (master)
+      # * A file added from SVN but remove by master
+      sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
+        | while read f; do 
+          rm -f "$f" 
+          git add -v "$f" 
+          echo >"$tmp\rebaseWorkAmend"
         done
-      fi
 
-      # Conflict "DU" - " deleted by ours, unmerged
-      # * A file may had been exist only in master all along, but now
-      # changed - which required to add into SVN
-      # * A file added from master, but had been removed by SVN
-      #
-      # * Exclude all .git* files, because it not part of SVN
-      sed -ne "s/^DU \(\.git.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do git rm -f "$f"; done
-
+      # Take any other changes from master
       git status --porcelain > "$tmp/gitStatus"
-      sed -ne "s/^DU \(.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do git add -- "$f"; done
+      sed -ne "s/^.. \(.*\)$/\1/p" "$tmp/gitStatus" \
+        | while read f; do 
+        git checkout $newHead -- "$f"
+        git add -v "$f" 
+        echo >"$tmp\rebaseWorkAmend"
+      done
+
+      if [[ -f "$tmp\rebaseWorkAmend" ]]; then
+        git commit -C $newHead      
+      fi
 
       # Code use to debug this process
       if [ "$prompt" == "yes" ]; then
@@ -659,71 +712,16 @@ syncGITtoSVN()
 
     done;
 
-    if [[ ! -z "$lfsFilter" ]]; then
-      INFO "****** Remove submodules, and LFS settings"
-      git filter-branch -f --index-filter '
-      git checkout-index -f -- .gitmodules
-      if [ $? == 0 ]; then
-        sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
-          | while read f; do 
-            rm -rf -- "$f" 
-          done
-        git rm -f .gitmodules
-      fi
-      git checkout-index -f -- .gitattributes
-      git rm -f .gitattributes
-
-      git diff "'$svnRemote'" --cached --name-only --diff-filter=d \
-        | while read f; do
-        git checkout-index -f -- "$f"
-        head -2 "$f" | sed -ne "s/^oid sha256:\([^ ]*\)/\1/p" \
-          | while read ref; do
-          ref="'$tmp'/lfs-$ref"
-          if [ ! -f "$ref" ]; then
-            cat "$f" | git lfs smudge > "$ref"
-            if [ $? != 0 ]; then 
-              rm -f "$ref"
-              >&2 echo "  Cannot remove LFS pointer for $f"
-              exit 3
-            fi
-            echo "  Remove LFS pointer on $f"
-          fi
-          cp -f "$ref" "$f"
-          git add "$f"
-          break
-        done
-      done
-      ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
-      exitIfErr 1 "Cannot remove LFS settings from git commits!" '
-        cat "'$filterLog'"
-        rm -f "'$tmp'/"lfs-[0-9a-fA-F]*
-        git lfs install --local
-        '
-      rm -f "$tmp/"lfs-[0-9a-fA-F]*
-    else
-      INFO "****** Remove submodule settings"
-      git filter-branch -f --index-filter '
-      git checkout-index -f -- .gitmodules
-      if [ $? == 0 ]; then
-        sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
-          | while read f; do 
-            rm -rf -- "$f"
-          done
-        git rm -f .gitmodules
-      fi
-      git checkout-index -f -- .gitattributes
-      git rm -f .gitattributes
-      ' --prune-empty -- "$svnRemote".."$tryMerge" 2> "$filterLog"
-      exitIfErr 1 "Cannot remove submodule settings from git commits!" '
-        cat "'$filterLog'"
-        git lfs install --local'
-    fi
-
     git filter-branch --env-filter '
       export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
       export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
       export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
-    ' -f -- "$svnRemote".."$tryMerge"
+    ' --index-filter '
+      git ls-files --cached --full-name | grep -e "^\(.*/\)\?.gitmodules$" \
+        | while read f; do
+          git rm --cached -f "$f"
+        done
+    ' --prune-empty -f -- "$svnRemote".."$tryMerge"
     if [[ $? != 2 ]]; then
       exitIfErr 1 "Cannot readjust committer info onto $tryMerge!" '
           git lfs install --local'
@@ -832,7 +830,7 @@ syncGITtoSVN()
     git branch -f "$svnBranch" "$svnRemote"
 
     if [ "$prompt" == "yes" ]; then
-      read -p "Check before push to stash, Press Enter...."
+      read -p "Check before push to remote, Press Enter...."
     fi
 
     gitPushLfsBranch
@@ -882,14 +880,20 @@ get_gitattributes()
     unset lfsFilter
   fi
 
+  git lfs uninstall --local 2> /dev/null
+
+  # Verify all the lfs filter are uninstalled
+  git config --show-origin \
+    --get-regexp "filter\.lfs\.(smudge|process)" >/dev/null
+  exitIf "$? == 0" 1 \
+    "LFS need to be manually uninstalled in all level except local once"
+
   if [[ -z "$lfsFilter" ]]; then
     NOTE "Not use LFS for this repository"
   else
     DBG  "LFS files are: $lfsFilter"
-    ## uninstall LFS global to make sure it not interfere the local lfs 
-    ## configuration
-    #git lfs uninstall       &> /dev/null
     git lfs install --local 2> /dev/null
+    exitIfErr 1 "Cannot install LFS locally"
   fi
 }
 
@@ -906,11 +910,7 @@ get_svnInfo()
   svnRemote="${svnRemote##*/}"
   svnFolder="${svnRemote##*svn-}"
   svnBranch="svn/$svnFolder"
-  if [[ ! -z "$lfsFilter" ]]; then
-    lfsBranch="svn/lfs/$svnFolder"
-  else
-    lfsBranch="$svnBranch"
-  fi
+  lfsBranch="svn/lfs/$svnFolder"
 }
 
 getSvnCommiters()
@@ -949,7 +949,7 @@ getCurBranch()
 
 gitPushLfsBranch()
 {
-  # TODO: Work around for git-lfs return error 141 when stash timeout on
+  # TODO: Work around for git-lfs return error 141 when remote timeout on
   # read/write put all the push actual done correctly to the server.
   git push -f -u $gitRemote "$lfsBranch"
   if [[ $? != 0 ]]; then
@@ -970,6 +970,7 @@ myExit()
   exit $1
 }
 
-echo "Started on `date`"
+INFO "Started on `date`"
 EXIT_CMDS=(cleanUp exitErrInfo)
 main "$@"
+
