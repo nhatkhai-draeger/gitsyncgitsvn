@@ -32,23 +32,3 @@ tryRealPath()
   fi
 }
 
-isEqual()
-{
-  if [[ ! "$1" == "$2" ]]; then
-    echo "FAIL $1 != $2 :: $3"
-  else
-    echo "PASS $1 == $2 :: $3"
-  fi
-}
-
-if [[ $1 == "--test" ]]; then
-  pushd /
-  isEqual `tryRealPath "tmp"` "/tmp" "Folder exist"
-  isEqual `tryRealPath "tmp1"` "tmp1" "Not existing"
-
-  echo "hello" > tmp/tmp_$$
-  isEqual `tryRealPath "tmp/tmp_$$"` /tmp/tmp_$$ "File exist"
-  rm -f tmp/tmp_$$
-  isEqual `tryRealPath "tmp/tmp_$$"` tmp/tmp_$$ "File not exist"
-  popd
-fi
