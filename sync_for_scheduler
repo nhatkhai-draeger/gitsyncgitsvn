@@ -35,6 +35,9 @@ Options:
       Specifiy where all the synch git repositories location. 
       (Default $gits)
 
+  -l, --logDir LOG_DIR
+    Specify where to storage all the log files 
+
 Sync_Script_Options:
   NOTE: Use full option names for passing value, use short option names for
   not required passing value
@@ -106,6 +109,7 @@ syncASvnFolder()
   # Extract function parameters
   local repoName=$1
 
+  local name="              $repoName"
   local repoLogDir="$logDir/$repoName"
   local errPath="$repoLogDir/error.log"
   local lock="$repoLogDir/lock"
@@ -126,43 +130,42 @@ syncASvnFolder()
   fi
 
   mkdir -p "$repoLogDir"
+  echo > "$repoLogDir/$logFile"
   (
     EXIT_CMDS=()
     if [[ "$flock" == "yes" ]]; then flock -n 9; fi
     exitIfErr 0 "Previous run is still running. 
     If not, please remove $lock files"
+    EXIT_CMDS=("rm -f \"$lock\" 2>/dev/null")
+
+    INFO "+++++++++ Sync $repoName ($logFile) ..."
 
     if [[ -f "$errPath" && "$force" == "yes" ]]; then
       WARN "Removing previous run failed log $errPath"
       rm -f "$errPath"
     fi
 
-    EXIT_CMDS=("rm -f \"$lock\"")
-    INFO "+++++++++ Sync $repoName ($logFile) ..."
-    (
-      pushd "$gits/$repoName" || exit $?
-      "$sync" "${syncOps[@]}" || exit $?
-      popd
-    ) &> "$repoLogDir/$logFile"
-    exitIfErr 1 "+++++++++ Sync $repoName ($logFile) failed." '
-      ln -f "$repoLogDir/$logFile" "$errPath"
-    '
+    rm -f "$repoLogDir/errCode"
+    ( 
+      (
+        pushd "$gits/$repoName"
+        source "$sync" "${syncOps[@]}" 
+        popd
+      ) || echo $? > "$repoLogDir/errCode"
+    ) 2>&1 | while IFS= read line; do
+      echo "$line" >> "$repoLogDir/$logFile";
+      if [ "$veb" == "yes" ]; then
+        echo "  [${name: -15}] $line"
+      fi
+    done
+
+    exitIf '-f "$repoLogDir/errCode"' 1 \
+      "+++++++++ Sync $repoName ($logFile) failed." \
+      'ln -sf "$repoLogDir/$logFile" "$errPath"'
 
     INFO "+++++++++ Sync $repoName ($logFile) finished."
     exitClean 0
   ) 9>"$lock" &
-
-  if [ "$veb" == "yes" ]; then
-    for (( i=0 ; i<10 ; i++ )) do
-      if [[ -f "$repoLogDir/$logFile" ]]; then 
-        local name="              $repoName"
-        tail -f --pid $! "$repoLogDir/$logFile" \
-          | sed -e "s/^/\[${name: -15}\] /" 2>/dev/null &
-        break;
-      fi
-      sleep 1
-    done
-  fi
 }
 
 cleanUp()
