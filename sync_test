@@ -296,9 +296,10 @@ runMany()
 # It also count number of pass and fail tests
 #
 # For example Assert a -eq b "a expected to equal b"
+# NOTE: $errCode can be use as $?
 Assert()
 {
-  errCode=$?
+  local errCode=$?
   if [[ ${#runScope[@]} -eq 0 ]]; then
     ERROR This method not design to be call directly
     exit 1;
@@ -307,9 +308,13 @@ Assert()
   local msg=''
   if [[ ! -z "$4" ]]; then msg=":: $4"; fi
 
-  msg="[[`eval echo "$1" "$2" "$3"`]] $msg"
-  local cond=`eval if "[[" $1 $2 $3 "]];" then echo "1;" fi`
-  if [[ "$cond" == "1" ]]; then
+  (exit $errCode) # Replace exit code
+  msg="[[`eval echo \"$1 $2 $3\"`]] $msg" \
+    || (echo $1 $2 $3; echo `caller`; exit 1)
+
+  (exit $errCode) # Replace exit code
+  (eval [[ $1 $2 $3 ]]) && local cond=1 || local cond=0;
+  if [[ $cond == 1 ]]; then
     __log "`caller`" $LOG_LEVEL_INFO "$LOG_INFO" "" "$LOG_PASS $msg"
     ((runTestPassCnt=runTestPassCnt+1))
   else

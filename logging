@@ -27,7 +27,7 @@ if [[ -z ${LOG_PREFIX+x} ]]; then
  LOG_LINEMSG='\e[1m'
 LOG_LINECONT='   --'
   LOG_PREFIX=('$time ' '[${file}${line}] ' '$lvlName ')
-  LOG_INDENT="                           "
+  LOG_INDENT="                             "
 fi
 
 # LOG_LEVEL to specify which log will not be echo on the console
@@ -40,31 +40,39 @@ if [[ -z ${EXIT_CMDS+x} ]]; then EXIT_CMDS=(); fi
 # $1 - Exit code
 # $2 - Exit message
 # The rest parameters are a set of code will be execute before exit.
+# NOTE: $errCode can be use as $?
 exitIfErr()
 {
   local errCode=$?
-  __exit_if "`caller`" '$errCode != 0' "$@"
+  __exit_if $errCode "`caller`" "$errCode != 0" "$@"
 }
 
-# $1 - Condition in single quote. use $errCode instead of $?
+# $1 - Condition in single quote. $errCode can be use as $?
 # $2 - Exit code
 # $3 - Exit message
 # The rest parameters are a set of code will be execute before exit.
+# NOTE: $errCode can be use as $?
 exitIf()
 {
   local errCode=$?
-  __exit_if "`caller`" "$@"
+  __exit_if $errCode "`caller`" "$@"
 }
 
-# $3 - Exit Code, $errCode use to replace $?
+# $1 - Exit Code
 # The rest parameters for exit commands
+# NOTE: $errCode can be use as $?
 exitClean()
 {
+  local errCode=$?
   local exitCode=$1
   shift
 
-  if [[ $# != 0 ]]; then (>&2 eval "$@") fi
+  if [[ $# != 0 ]]; then 
+    (exit $errCode)
+    (>&2 eval "$@") 
+  fi
   for c in "${EXIT_CMDS[@]}"; do
+    (exit $errCode)
     (eval $c)
   done
   exit $exitCode
@@ -111,22 +119,22 @@ ERROR()
   >&2 __log "`caller`" $LOG_LEVEL_ERROR "$LOG_ERROR" "" "$@"
 }
 
-# $1 - Caller "$line $filename"
-# $2 - Test condition, $errCode use to replace $?
-# $3 - Exit Code
-# $4 - Exit message
+# $1 - Captured value of $?
+# $2 - Caller "$line $filename"
+# $3 - Test condition
+# $4 - Exit Code
+# $5 - Exit message
+#
 # The rest parameters for exit commands
 __exit_if()
 {
-  local cond=`eval if "[[" $2 "]];" then echo "1;" fi`
-  if [[ "$cond" == "1" ]]; then
-    local caller=$1
-    local exitCode=$3
-    local exitMsg=$4
-    shift; shift; shift; shift;
-    __log "$caller" LOG_LEVEL_ERROR "$LOG_ERROR" "" "(${errCode}) $exitMsg"
+  (exit $1) # Replay the error code
+  (eval [[ $3 ]]) && local cond=1 || local cond0
+  if [[ $cond == 1 ]]; then
+    __log "$2" LOG_LEVEL_ERROR "$LOG_ERROR" "" "($1) $5"
 
-    exitClean $exitCode "$@"
+    (exit $errCode) # Replay the error code
+    exitClean $4 "${@:6}"
   fi
 }
 
@@ -189,7 +197,10 @@ ${tmp//\\/\\\\}"
   # Add indent space before each lines
   out="${out//$'\n'/${LOG_EOL}${LOG_INDENT}$LOG_LINECONT $LOG_LINEMSG}$LOG_EOL"
 
-  pre=`eval printf "\"${LOG_PREFIX[@]}\""`
+  pre=`eval printf "\"${LOG_PREFIX[@]}\""` \
+    || (echo ${LOG_PREFIX[@]}; echo `caller`; exit 1)
+
+
   out="${pre}${out}"
 
   # Print message to console using flock if specified
