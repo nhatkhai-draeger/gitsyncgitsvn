@@ -20,3 +20,10 @@ cmd=($scriptDir/sync "${syncParam[@]}")
 INFO "## ${cmd[*]}"
 "${cmd[@]}" 
 popd
+
+(cd svn_test/proj1; svn up .)
+pushd git_test/proj1
+git checkout master -f
+diff . ../../svn_test/proj1 -x .git -x mod1 -x mod2 -x .gitmodules
+Assert $? -eq 0 "svn and git should be matched"
+popd

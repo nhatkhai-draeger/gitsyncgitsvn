@@ -1,20 +1,9 @@
 #!/bin/bash
 runMany variables_setup.sh
-runOnce test_nolfs_submodule_onecommit.sh
+runOnce test_nolfs_gitcommits.sh
+runOnce create_submodules.sh
 
 TEST "SYNC MULTIPLE COMMITS CONTAINS SUBMODULE"
-
-INFO "## Create submodule"
-echo git_repo/mod2.git  >> clean_list
-echo git_test/mod2      >> clean_list
-git init --bare git_repo/mod2.git
-git clone file://$curDir/git_repo/mod2.git git_test/mod2
-pushd git_test/mod2
-echo "mod2" > modfile1
-git add modfile1
-git commit -m "1st mod2"
-git push
-popd
 
 INFO "## Add submodule"
 pushd git_test/proj1_local
@@ -46,4 +35,11 @@ pushd git_test/proj1
 cmd=($scriptDir/sync)
 INFO "## ${cmd[*]}"
 "${cmd[@]}" "${syncParam[@]}"
+popd
+
+(cd svn_test/proj1; svn up .)
+pushd git_test/proj1
+git checkout master -f
+diff . ../../svn_test/proj1 -x .git -x mod1 -x mod2 -x .gitmodules
+Assert $? -eq 0 "git and svn should match except mod1, mod2, .git*"
 popd

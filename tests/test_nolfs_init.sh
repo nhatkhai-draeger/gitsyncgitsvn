@@ -14,3 +14,11 @@ cmd+=("${jenkinsParam[@]}")
 cmd+=(--gitDot . -d proj1)
 INFO "## ${cmd[*]}"
 "${cmd[@]}" 
+
+pushd git_test/proj1
+git checkout svn/proj1
+diff . ../../svn_test/proj1 -x .git
+Assert $? -eq 0 "should match svn contents"
+Assert -z '"`git lfs ls-files`"' "" "no lfs in svn/proj1 branch"
+Assert -z '"`git diff master`"' "" "master and svn/proj1 are the same"
+popd

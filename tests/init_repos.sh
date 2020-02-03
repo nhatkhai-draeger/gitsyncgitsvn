@@ -28,6 +28,7 @@ popd
 INFO "## Create empty git repo"
 echo git_repo >> clean_list
 git init --bare git_repo/proj1.git
+git init --bare git_repo/proj2.git
 
 INFO "## Create empty git test folder"
 echo git_test >> clean_list
