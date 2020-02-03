@@ -7,6 +7,9 @@ LOG_SKIP="\e[1m\e[49m\e[39mSKIP\e[0m\e[49m\e[39m"
 LOG_PASS="\e[1m\e[42m\e[97mPASS\e[0m\e[49m\e[39m"
 LOG_FAIL="\e[1m\e[41m\e[97mFAIL\e[0m\e[49m\e[39m"
 
+ASSERT_PASS="\e[1m\e[32mPASS\e[0m\e[39m"
+ASSERT_FAIL="\e[1m\e[31mFAIL\e[0m\e[39m"
+
 showHelp () 
 {
   cat <<EOF
@@ -75,10 +78,15 @@ main ()
       printf "EXECUTING $test..\r"
       echo 0 > "$tmp/maxScopeLvl"
       runTest "$test" 2>&1 | while IFS= read line; do
-        echo "$line" >> "$tmp/$test.log"
         if [[ ! -z $verbose ]]; then
-          echo "`cat "$tmp/curTestName"` $line"
+          if [[ "${line:0:1}" == "!" ]]; then
+            testCnt=${line:1:1}
+            line="${line:3}"
+            testname="`cat "$tmp/curTestName$testCnt"`"
+          fi
+          echo "$testname ${line//$'\r'/}"
         fi
+        echo "$line" >> "$tmp/$test.log"
       done
       printf "\e[K" # Clear line from current cursor
     )
@@ -110,7 +118,9 @@ main ()
 
   # Report test summary
   echo
-  DBG "Test hierarchy:" "\n`cat "$tmp/testHierarchy"`"
+  if [[ -f "$tmp/testDependencies" ]]; then
+    DBG "Test dependency:" "\n`sort "$tmp/testDependencies"`"
+  fi
 
   if [[ -f "$tmp/failList" ]]; then
     ERROR "Following $failCnt fail(s) out of $runCnt ran tests:" \
@@ -156,9 +166,14 @@ runTest()
   (
     set +e # Disable error propagation
     (
-      testname="               $test"
-      printf "[${testname: -15}]" > "$tmp/curTestName"
-      LOG_PREFIX=( "${LOG_PREFIX[@]:1}" )
+      if [[ ! -z $verbose ]]; then
+        ((testCnt=(testCnt+1)%10))
+        testname="               $test"
+        printf "[${testname: -15}]" > "$tmp/curTestName$testCnt"
+        LOG_PREFIX[0]="!$testCnt"
+      else
+        LOG_PREFIX=("${LOG_PREFIX[@]:1}")
+      fi
 
       runTestFailCnt=0
       runTestPassCnt=0
@@ -173,7 +188,7 @@ runTest()
       set +e # Disable error propagation
       echo PASS    > "$tmp/$test.exitCode"
 
-      echo "${runScope[*]}" >>"$tmp/testHierarchy"
+      echo "${runScope[*]}" >>"$tmp/testDependencies"
 
       ((check=runTestPassCnt+runTestFailCnt))
       if [[ $runTestFailCnt -ne 0 ]]; then
@@ -186,7 +201,6 @@ runTest()
       fi
     )
     err=$? 
-    echo "[${testname: -15}]" > "$tmp/curTestName"
 
     # Check current exit code not been propagated
     if (( `cat "$tmp/maxScopeLvl"` == ${#runScope[@]}+1 )); then
@@ -315,10 +329,10 @@ Assert()
   (exit $errCode) # Replace exit code
   (eval [[ $1 $2 $3 ]]) && local cond=1 || local cond=0;
   if [[ $cond == 1 ]]; then
-    __log "`caller`" $LOG_LEVEL_INFO "$LOG_INFO" "" "$LOG_PASS $msg"
+    __log "`caller`" $LOG_LEVEL_INFO "$LOG_INFO" "" "$ASSERT_PASS $msg"
     ((runTestPassCnt=runTestPassCnt+1))
   else
-    __log "`caller`" $LOG_LEVEL_INFO "$LOG_INFO" "" "$LOG_FAIL $msg"
+    __log "`caller`" $LOG_LEVEL_INFO "$LOG_INFO" "" "$ASSERT_FAIL $msg"
     ((runTestFailCnt=runTestFailCnt+1))
   fi
 }
