@@ -110,6 +110,7 @@ syncASvnFolder()
   local repoName=$1
 
   local name="              $repoName"
+  name="[${name: -15}]"
   local repoLogDir="$logDir/$repoName"
   local errPath="$repoLogDir/error.log"
   local lock="$repoLogDir/lock"
@@ -147,6 +148,7 @@ syncASvnFolder()
 
     rm -f "$repoLogDir/errCode"
     ( 
+      LOG_PREFIX=("${LOG_PREFIX[@]:1}")
       (
         pushd "$gits/$repoName"
         source "$sync" "${syncOps[@]}" 
@@ -155,7 +157,7 @@ syncASvnFolder()
     ) 2>&1 | while IFS= read line; do
       echo "$line" >> "$repoLogDir/$logFile";
       if [ "$veb" == "yes" ]; then
-        echo "  [${name: -15}] $line"
+        echo "$name ${line//$'\r'/}"
       fi
     done
 
@@ -202,5 +204,6 @@ checkSettings()
   respoNames="$logDir/respoNames_$BASHPID"
 }
 
+LOG_PREFIX=("[---------------]" "${LOG_PREFIX[@]}")
 EXIT_CMDS=(cleanUp)
 main "$@"
