@@ -69,11 +69,11 @@ exitClean()
 
   if [[ $# != 0 ]]; then 
     (exit $errCode)
-    (>&2 eval "$@") 
+    (>&2 eval "$@") || (echo $@; echo `caller`; exit 1)
   fi
   for c in "${EXIT_CMDS[@]}"; do
     (exit $errCode)
-    (eval $c)
+    (eval $c) || (echo $c; echo `caller`; exit 1)
   done
   exit $exitCode
 }
@@ -129,13 +129,16 @@ ERROR()
 __exit_if()
 {
   (exit $1) # Replay the error code
-  (eval [[ $3 ]]) && local cond=1 || local cond0
-  if [[ $cond == 1 ]]; then
-    __log "$2" LOG_LEVEL_ERROR "$LOG_ERROR" "" "($1) $5"
+  (eval [[ ! "(" $3 ")" ]]) \
+    || ( 
+      # Check to make sure it not a syntax error
+      (eval [[ $3 ]]) || (echo "[[ $3 ]]"; echo `caller`; exit 1)
 
-    (exit $errCode) # Replay the error code
-    exitClean $4 "${@:6}"
-  fi
+      __log "$2" LOG_LEVEL_ERROR "$LOG_ERROR" "" "($1) $5"
+
+      (exit $errCode) # Replay the error code
+      exitClean $4 "${@:6}"
+    )
 }
 
 # $1 is caller "$line $filename"
@@ -199,7 +202,6 @@ ${tmp//\\/\\\\}"
 
   pre=`eval printf "\"${LOG_PREFIX[@]}\""` \
     || (echo ${LOG_PREFIX[@]}; echo `caller`; exit 1)
-
 
   out="${pre}${out}"
 
