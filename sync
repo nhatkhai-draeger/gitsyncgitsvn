@@ -876,7 +876,7 @@ get_gitattributes()
 
   else
 
-    NOTE "Cannot find .gitattributes from $gitBranch branch!"
+    DBG "No .gitattributes from $gitBranch branch!"
     unset lfsFilter
   fi
 
