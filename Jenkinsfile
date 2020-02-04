@@ -6,7 +6,7 @@ pipeline
     stage("syntax") { steps { script
     {
       // Search all the bash script files
-      sh """grep "^#!.*/bash" * -l > .tmp.bashFiles"""
+      sh """grep "^#!.*/bash" . -R -l --exclude-dir .git > .tmp.bashFiles"""
 
       // Check syntax on all bash script files
       sh """#!/bin/bash -e
