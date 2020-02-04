@@ -151,7 +151,7 @@ syncASvnFolder()
       LOG_PREFIX=("${LOG_PREFIX[@]:1}")
       (
         pushd "$gits/$repoName"
-        source "$sync" "${syncOps[@]}" 
+        "$sync" "${syncOps[@]}" || exit $?
         popd
       ) || echo $? > "$repoLogDir/errCode"
     ) 2>&1 | while IFS= read line; do
