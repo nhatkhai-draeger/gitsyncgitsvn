@@ -883,10 +883,13 @@ get_gitattributes()
   git lfs uninstall --local 2> /dev/null
 
   # Verify all the lfs filter are uninstalled
-  git config --show-origin \
-    --get-regexp "filter\.lfs\.(smudge|process)" >/dev/null
+  git config --show-origin --get-regexp "filter\.lfs\.(smudge|process)" \
+    >"$tmp/lfsSettings" 2>/dev/null
   exitIf "$? == 0" 1 \
-    "LFS need to be manually uninstalled in all level except local once"
+    "LFS need to be manually uninstalled in all level except local once" '
+    echo "Following configuration need to be remove:"
+    cat "$tmp/lfsSettings"
+    '
 
   if [[ -z "$lfsFilter" ]]; then
     NOTE "Not use LFS for this repository"
