@@ -198,8 +198,7 @@ work_on()
 
         cmd=("${sync}" --init "$svn_dir_name" "${syncOps[@]}")
         DBG ">${cmd[@]}"
-        "${cmd[@]}"
-        exitIfErr 1 "Cannot initialize"
+        "${cmd[@]}" || exit $?
         popd
       ) || echo $? > "$repoLogDir/errCode" 
     ) 2>&1 | while IFS= read line; do
