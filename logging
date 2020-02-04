@@ -130,7 +130,7 @@ __exit_if()
 {
   (exit $1) # Replay the error code
   (eval [[ ! "(" $3 ")" ]]) \
-    || ( 
+    || { 
       # Check to make sure it not a syntax error
       (eval [[ $3 ]]) || (echo "[[ $3 ]]"; echo `caller`; exit 1)
 
@@ -138,7 +138,7 @@ __exit_if()
 
       (exit $errCode) # Replay the error code
       exitClean $4 "${@:6}"
-    )
+    }
 }
 
 # $1 is caller "$line $filename"
