@@ -12,19 +12,20 @@ echo "/tmp/init_new_sync_{0,1}*" >> clean_list
 cmd=($scriptDir/init_new_sync "${urls[@]}" "${syncParam[@]}")
 cmd+=("${jenkinsParam[@]}")
 cmd+=(--gitDot gitLFSDot -d proj2)
-INFO "## ${cmd[*]}"
+INFO "# ${cmd[*]}"
 "${cmd[@]}" 
 
 pushd git_test/proj2
-git checkout svn/proj2
-diff . ../../svn_test/proj2 -x .git
-Assert $? -eq 0 "should match svn contents"
+git lfs uninstall --local
+git checkout svn/proj2 -f
+diff . ../../svn_test/proj2 -x .git \
+  || Assert $? -eq 0 "should match svn contents"
 Assert -z '"`git lfs ls-files`"' "" "no lfs in svn/proj2 branch"
 
 git lfs install --local
-git checkout master
-diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 
-Assert $? -eq 0 "should match svn contents"
+git checkout master -f
+diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 \
+  || Assert $? -eq 0 "should match svn contents"
 Assert '"`git lfs ls-files`"' =~ '"* file1.dat"$' "lfs in master"
 popd
 

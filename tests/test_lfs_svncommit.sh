@@ -6,6 +6,7 @@ TEST "SYNC SVN COMMITS W/ NEW BINARY FILE"
 
 INFO "# Add a binary file that not specified in .gitattributes"
 pushd svn_test/proj2
+svn up .
 echo "test2" > file3
 printf "\01\02\03" > newBinFile2
 svn add file3 newBinFile2
@@ -15,15 +16,15 @@ popd
 echo "/tmp/sync_{0,1}*" >> clean_list
 pushd git_test/proj2
 cmd=($scriptDir/sync "${syncParam[@]}")
-INFO "## ${cmd[*]}"
+INFO "# ${cmd[*]}"
 "${cmd[@]}" 
 popd
 
 pushd git_test/proj2
 git lfs install --local
 git checkout master -f
-diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 
-Assert $? -eq 0 "should match svn contents"
+diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 \
+  || Assert $? -eq 0 "should match svn contents"
 Assert '"`git lfs ls-files -n | sort`"' =~ \
   '^"file1.dat"."newBinFile2"$' "2 lfs files in master"
 popd
