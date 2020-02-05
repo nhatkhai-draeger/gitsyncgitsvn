@@ -1,4 +1,4 @@
-NOTE "# Crate repos"
+INFO "# Crate repos"
 
 INFO "## Create empty svn repo"
 echo svn_repo >> clean_list
@@ -25,10 +25,21 @@ svn commit -m "1st project2"
 svn up .
 popd
 
+INFO "## Create proj a b in SVN with some commits"
+pushd svn_test
+mkdir "proj a b"
+echo "proj a b file1" > "proj a b/file1.dat"
+echo "proj a b file1" > "proj a b/file1"
+svn add "proj a b"
+svn commit -m "1st proj a b"
+svn up .
+popd
+
 INFO "## Create empty git repo"
 echo git_repo >> clean_list
 git init --bare git_repo/proj1.git
 git init --bare git_repo/proj2.git
+git init --bare git_repo/projab.git
 
 INFO "## Create empty git test folder"
 echo git_test >> clean_list
