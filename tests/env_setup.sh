@@ -1,10 +1,10 @@
 # Run on VirtualBox Win10_cyg image via ssh
-NOTE "# Check required cygwin modules"
+INFO "# Check required cygwin modules"
 cygmods=(git git-svn subversion)
 cnt=`cygcheck -c -d "${cygmods[@]}" | wc -l`
 ( 
   if [[ $(($cnt-2)) -lt ${#cygmods[@]} ]]; then
-    INFO "## Install required cygwin modules"
+    NOTE "## Install required cygwin modules"
     net use x: \\\\att.corp.draeger.global\\distribution \
       /user:corp\\`whoami`
     IFS=","
@@ -13,7 +13,7 @@ cnt=`cygcheck -c -d "${cygmods[@]}" | wc -l`
   fi 
 )
 
-NOTE "# Configure test environment"
+INFO "# Configure test environment"
 git config --global user.email "test@email.com"
 git config --global user.name "tester"
 
