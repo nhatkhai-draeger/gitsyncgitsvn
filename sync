@@ -199,38 +199,43 @@ checkSettings()
   cd "$repoDir"
   exitIfErr 1 "Cannot change to folder $repoDir!"
 
-  local temp=`git config --local --get svn-remote.svn.url 2> /dev/null`
+  local oldSvnUrl=`git config --local --get svn-remote.svn.url 2>/dev/null`
   if [ -z "$svnURL" ]; then
   # Obtain SVN URL from the .git/config if not specified by user
-    exitIf '-z "$temp"' 1 "Please specify svn URL"
-    svnURL=`dirname "$temp"`
+    exitIf '-z "$oldSvnUrl"' 1 "Please specify svn URL"
+    svnURL=`dirname "$oldSvnUrl"`
 
-  elif [[ ! "$temp" =~ "$svnURL/"* ]]; then
+  elif [[ ! "$oldSvnUrl" =~ "$svnURL/"* ]]; then
   # Create rewriteRoot in case $svnURL is not the same
-    local temp3=`git config --local --get svn-remote.svn.rewriteRoot 2> /dev/null`
-    if [ -z "$temp3" ]; then
-      git config --local --replace-all svn-remote.svn.rewriteRoot "$temp"
+    local oldSvnRewrite=`git config --local \
+      --get svn-remote.svn.rewriteRoot 2> /dev/null`
+    if [ -z "$oldSvnRewrite" ]; then
+      git config --local --replace-all svn-remote.svn.rewriteRoot \
+        "${oldSvnUrl// /%20}"
       exitIfErr 1 "Cannot create svn-remote.svn.rewriteRoot"
     fi
 
-    # Try to replace new SVN URL
-    local temp3=$svnURL/
-    local temp2=$temp
-    while [ ! -z "$temp3" ]; do
-      temp3=${temp3#*/}
-      temp2=${temp2#*/}
+    # Try guess the SVN folder by assuming the old and new URL have the
+    # same hierarchy level
+    local newSvnUrl=$svnURL/
+    local svnDir=$oldSvnUrl
+    while [ ! -z "$newSvnUrl" ]; do
+      newSvnUrl=${newSvnUrl#*/}
+      svnDir=${svnDir#*/}
     done
-    temp2=$svnURL/$temp2
-    git config --local --replace-all svn-remote.svn.url "$temp2"
-    if [[ ! -z "$temp" ]]; then
-      NOTE "Move SVN URL to $temp2 from $temp"
+
+    local newSvnUrl=$svnURL/$svnDir
+    git config --local --replace-all svn-remote.svn.url "$newSvnUrl"
+    if [[ ! -z "$oldSvnUrl" ]]; then
+      NOTE "Move SVN URL to $newSvnUrl from $oldSvnUrl"
     fi
   fi
 
   if [ -z "$gitURL" ]; then
-    local temp=`git config --local --get remote.${gitRemote}.url 2> /dev/null`
+    local curSvnUrl=`git config --local \
+      --get remote.${gitRemote}.url 2>/dev/null`
     exitIfErr 1 "Please specify git URL"
-    gitURL="${temp}"; 
+    gitURL="${curSvnUrl}"; 
   fi
 
   local status=`git status -s` &> /dev/null
