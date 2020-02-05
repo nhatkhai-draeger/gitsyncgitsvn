@@ -5,11 +5,12 @@ runOnce create_submodules.sh
 
 TEST "SYNC LFS MULTIPLE COMMITS CONTAINS SUBMODULE"
 
-INFO "## Add submodule"
+INFO "# Add submodule"
 pushd git_test/proj2_local
+git pull
 git submodule add file://$curDir/git_repo/mod2.git mod2
 git commit -a -m "Add mod2"
-INFO "## Modify submodule"
+INFO "# Modify submodule"
 pushd mod2
 echo "mod2 - Proj2" > modProj2File2
 git add modProj2File2
@@ -17,7 +18,7 @@ git commit -m "Proj2 2nd mod2"
 git push
 popd
 git commit -a -m "Proj2 Update mod2"
-INFO "## Modify submodule 2nd time"
+INFO "# Modify submodule 2nd time"
 pushd mod2
 echo "modify1 - Proj2" > modProj2File2
 git commit -a -m "Proj2 3rd mod2"
@@ -33,13 +34,18 @@ popd
 echo "/tmp/sync_{0,1}*" >> clean_list
 pushd git_test/proj2
 cmd=($scriptDir/sync)
-INFO "## ${cmd[*]}"
+INFO "# ${cmd[*]}"
 "${cmd[@]}" "${syncParam[@]}"
 popd
 
 (cd svn_test/proj2; svn up .)
 pushd git_test/proj2
+git lfs install --local
 git checkout master -f
-diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 
-Assert $? -eq 0 "git and svn should match except mod1, mod2, .git*"
+
+diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 \
+  || Assert $? -eq 0 "git and svn should match except mod1, mod2, .git*"
+
+diff . ../../git_test/proj2_local -x .git -x file1.dat \
+  || Assert $? -eq 0 "git local and git should match"
 popd
