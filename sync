@@ -691,8 +691,7 @@ syncGITtoSVN()
         done
 
       # Take any other changes from master
-      git status --porcelain > "$tmp/gitStatus"
-      sed -ne "s/^.. \(.*\)$/\1/p" "$tmp/gitStatus" \
+      sed -ne "s/^.[^D] \(.*\)$/\1/p" "$tmp/gitStatus" \
         | while read f; do 
         git checkout $newHead -- "$f"
         git add -v "$f" 
