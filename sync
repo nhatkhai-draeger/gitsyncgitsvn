@@ -777,7 +777,7 @@ syncGITtoSVN()
     local newCommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
     local  committedCnt=`git rev-list --count "$svnBranch".."$svnRemote"`
     ((uncommittedCnt = newCommitCnt - committedCnt ))
-    INFO "There is $uncommittedCnt/$newCommitCnt uncommitted into SVN server"
+    INFO "There is $committedCnt/$newCommitCnt committed into SVN server"
     
     if [ "$prompt" == "yes" ]; then
       read -p "Check $svnRemote before update branches.Press Enter...."
@@ -794,7 +794,7 @@ syncGITtoSVN()
     local newCommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
     local  committedCnt=`git rev-list --count "$svnBranch".."$svnRemote"`
     ((uncommittedCnt = newCommitCnt - committedCnt ))
-    INFO "#2 There is $uncommittedCnt/$newCommitCnt uncommitted into SVN server"
+    INFO "#2 There is $committedCnt/$newCommitCnt committed into SVN server"
 
     if [ "$prompt" == "yes" ]; then
       read -p "Check $svnRemote before update branches.Press Enter...."
