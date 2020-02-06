@@ -6,6 +6,7 @@ TEST "SYNC_FOR_SCHEDULER script"
 
 INFO "# Inject some change from git repos"
 pushd git_test/proj1_local
+git pull
 echo "test sync for scheduler1" > file2
 git commit -am "test sync for scheduler1"
 git push
@@ -19,6 +20,10 @@ INFO "# ${cmd[*]}"
 (cd svn_test/proj1; svn up .)
 pushd git_test/proj1
 git checkout master -f
-diff . ../../svn_test/proj1 -x .git -x mod1 -x mod2 -x .gitmodules \
-  || Assert $? -eq 0 "svn and git should match except mod1 and .git*"
+diff . ../../svn_test/proj1 \
+  -x .git -x mod1 -x mod2 -x .gitmodules && a=0 || a=$?
+Assert $a -eq 0 "svn and git should match except mod1 and .git*"
+
+diff . ../../git_test/proj1_local && a=0 || a=$?
+Assert $a -eq 0 "git local and git should match"
 popd

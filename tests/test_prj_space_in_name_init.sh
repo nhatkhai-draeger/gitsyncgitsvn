@@ -18,14 +18,14 @@ INFO "# ${cmd[*]}"
 pushd git_test/projab
 git lfs uninstall --local
 git checkout svn/projab -f
-diff . "../../svn_test/proj a b" -x .git \
-  || Assert $? -eq 0 "should match svn contents"
+diff . "../../svn_test/proj a b" -x .git && a=0 || a=$?
+Assert $a -eq 0 "should match svn contents"
 Assert -z '"`git lfs ls-files`"' "" "no lfs in svn/projab branch"
 
 git lfs install --local
 git checkout master -f
-diff . "../../svn_test/proj a b" -x .git -x .gitattributes \
-  || Assert $? -eq 0 "should match svn contents"
-Assert '"`git lfs ls-files`"' =~ '" file1.dat"$' "no lfs in master"
+diff . "../../svn_test/proj a b" -x .git -x .gitattributes && a=0 || a=$?
+Assert $a -eq 0 "should match svn contents"
+Assert '"`git lfs ls-files`"' =~ '" file1.dat"$' "file1.dat is lfs file"
 popd
 

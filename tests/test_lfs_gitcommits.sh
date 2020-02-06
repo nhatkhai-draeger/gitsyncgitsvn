@@ -2,12 +2,14 @@
 runMany variables_setup.sh
 runOnce test_lfs_init.sh
 
-TEST "SYNC COMMITS PROJ1 FROM GIT"
+TEST "SYNC COMMITS PROJ2 FROM GIT (LFS)"
 
 INFO "# Inject some change from git repos"
 echo git_test/proj2_local >> clean_list
-git clone file://$curDir/git_repo/proj2.git git_test/proj2_local
+git clone -n file://$curDir/git_repo/proj2.git git_test/proj2_local
 pushd git_test/proj2_local
+git lfs install --local
+git checkout master
 echo "test2" > file2
 git add file2
 git commit -m "2nd"
@@ -25,9 +27,10 @@ popd
 pushd git_test/proj2
 git lfs install --local
 git checkout master -f
-diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 \
-  || Assert $? -eq 0 "svn and git should be matched"
+diff . ../../svn_test/proj2 \
+  -x .git -x .gitattributes -x .gitmodules -x mod2 && a=0 || a=$?
+Assert $a -eq 0 "svn and git should be matched"
 
-diff . ../../git_test/proj2_local -x .git -x file1.dat\
-  || Assert $? -eq 0 "git_local and git should be matched"
+diff . ../../git_test/proj2_local && a=0 || a=$?
+Assert $a -eq 0 "git_local and git should be matched"
 popd

@@ -6,8 +6,10 @@ TEST "SYNC COMMITS PROJ A B FROM GIT & SVN REPOS URL MOVED"
 
 INFO "# Inject some change from git repos"
 echo git_test/projab_local >> clean_list
-git clone file://$curDir/git_repo/projab.git git_test/projab_local
+git clone -n file://$curDir/git_repo/projab.git git_test/projab_local
 pushd git_test/projab_local
+git lfs install --local
+git checkout master
 echo "test4" > file4
 git add file4
 git commit -m "proj ab file4"
@@ -33,9 +35,10 @@ svn co file://$curDir/svn_rewrite_repo svn_test_rewrite
 pushd git_test/projab
 git lfs install --local
 git checkout master -f
-diff . "../../svn_test_rewrite/proj a b" -x .git -x .gitattributes \
-  || Assert $? -eq 0 "svn and git should be matched"
+diff . "../../svn_test_rewrite/proj a b" \
+  -x .git -x .gitattributes && a=0 || a=$?
+Assert $a -eq 0 "svn and git should be matched"
 
-diff . "../../git_test/projab_local" -x .git -x file1.dat \
-  || Assert $? -eq 0 "svn and git should be matched except lfs files"
+diff . "../../git_test/projab_local" && a=0 || a=$?
+Assert $a -eq 0 "git local and git should be matched"
 popd

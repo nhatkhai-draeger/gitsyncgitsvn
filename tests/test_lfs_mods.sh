@@ -3,7 +3,7 @@ runMany variables_setup.sh
 runOnce test_lfs_gitcommits.sh
 runOnce create_submodules.sh
 
-TEST "SYNC LFS MULTIPLE COMMITS CONTAINS SUBMODULE"
+TEST "SYNC MULTIPLE COMMITS CONTAINS SUBMODULE (LFS)"
 
 INFO "# Add submodule"
 pushd git_test/proj2_local
@@ -43,9 +43,10 @@ pushd git_test/proj2
 git lfs install --local
 git checkout master -f
 
-diff . ../../svn_test/proj2 -x .git -x .gitattributes -x .gitmodules -x mod2 \
-  || Assert $? -eq 0 "git and svn should match except mod1, mod2, .git*"
+diff . ../../svn_test/proj2 \
+  -x .git -x .gitattributes -x .gitmodules -x mod2 && a=0 || a=$?
+Assert $a -eq 0 "git and svn should match except mod1, mod2, .git*"
 
-diff . ../../git_test/proj2_local -x .git -x file1.dat \
-  || Assert $? -eq 0 "git local and git should match"
+diff . ../../git_test/proj2_local && a=0 || a=$?
+Assert $a -eq 0 "git local and git should match"
 popd

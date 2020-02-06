@@ -24,9 +24,10 @@ popd
 (cd svn_test/proj1; svn up .)
 pushd git_test/proj1
 git checkout master -f
-diff . ../../svn_test/proj1 -x .git -x mod1 -x mod2 -x .gitmodules \
-  || Assert $? -eq 0 "svn and git should be matched"
+diff . ../../svn_test/proj1 \
+  -x .git -x mod1 -x mod2 -x .gitmodules  && a=0 || a=$?
+Assert $a -eq 0 "svn and git should be matched"
 
-diff . ../../git_test/proj1_local -x .git \
-  || Assert $? -eq 0 "git local and git should be matched"
+diff . ../../git_test/proj1_local -x .git && a=0 || a=$?
+Assert $a -eq 0 "git local and git should be matched"
 popd

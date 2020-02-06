@@ -7,6 +7,7 @@ TEST "SYNC MULTIPLE COMMITS CONTAINS SUBMODULE"
 
 INFO "# Add submodule"
 pushd git_test/proj1_local
+git pull
 git submodule add file://$curDir/git_repo/mod2.git mod2
 git commit -a -m "Add mod2"
 INFO "# Modify submodule"
@@ -40,6 +41,10 @@ popd
 (cd svn_test/proj1; svn up .)
 pushd git_test/proj1
 git checkout master -f
-diff . ../../svn_test/proj1 -x .git -x mod1 -x mod2 -x .gitmodules \
-  || Assert $? -eq 0 "git and svn should match except mod1, mod2, .git*"
+diff . ../../svn_test/proj1 \
+  -x .git -x mod1 -x mod2 -x .gitmodules && a=0 || a=$?
+Assert $a -eq 0 "git and svn should match except mod1, mod2, .git*"
+
+diff . ../../git_test/proj1_local && a=0 || a=$?
+Assert $a -eq 0 "local git and git should match"
 popd
