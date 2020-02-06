@@ -658,6 +658,7 @@ syncGITtoSVN()
 
     local oldHead='a'
     local newHead=''
+    local maxWarnCnt=10
     # WARNING: This rebase process may skip some commits
     git rebase -s recursive -X theirs --exec "source \"$tmp/rebaseWork\""\
       --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge" 2> "$tmp/rebase"
@@ -673,13 +674,18 @@ syncGITtoSVN()
       INFO "**** Try to resolve conflict automatically at $newHead"
 
       if [[ $newHead == $oldHead ]]; then 
-        ERROR "Cannot rebase $gitBranch branch onto of $svnRemote!"
-        if [ "$prompt" == "yes" ]; then 
-          read -p "Check why rebase is failed..."
-        fi 
-        git lfs install --local
-        git rebase --abort
-        myExit 1
+        if [[ $maxWarnCnt -ne 0 ]]; then
+          WARN "Resolve same SHA-1 again!"
+          ((maxWarnCnt=maxWarnCnt-1))
+        else
+          ERROR "Cannot rebase $gitBranch branch onto of $svnRemote!"
+          if [ "$prompt" == "yes" ]; then 
+            read -p "Check why rebase is failed..."
+          fi 
+          git lfs install --local
+          git rebase --abort
+          myExit 1
+        fi
       fi
 
       git status --porcelain > "$tmp/gitStatus"
