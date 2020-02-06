@@ -695,8 +695,26 @@ syncGITtoSVN()
           echo >"$tmp\rebaseWorkAmend"
         done
 
+      # Handle some cases where the item were submodule and had been
+      # excluded or deleted from SVN branches
+      sed -ne "s/^D. \(.*\)$/\1/p" "$tmp/gitStatus" \
+        | while read f; do 
+          # Obtain the item type
+          local type=`git ls-tree $newHead -- "$f" \
+            | sed -En "s/[^ ]+ ([^ ]+).*/\1/p"`
+
+          if [[ "$type" == "commit" ]]; then
+          # commit type usually is a submodule folder, so we discard it
+            rm -f "$f" 
+          else
+            git checkout $newHead -- "$f"
+          fi
+          git add -v "$f" 
+          echo >"$tmp\rebaseWorkAmend"
+        done
+
       # Take any other changes from master
-      sed -ne "s/^.[^D] \(.*\)$/\1/p" "$tmp/gitStatus" \
+      sed -ne "s/^[^D][^D] \(.*\)$/\1/p" "$tmp/gitStatus" \
         | while read f; do 
         git checkout $newHead -- "$f"
         git add -v "$f" 
