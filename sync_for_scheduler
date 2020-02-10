@@ -127,6 +127,7 @@ syncASvnFolder()
     if [[ "$flock" != "yes" && -f "$lock" ]]; then 
       ERROR "Some thread may still running. 
       Please wait or remove ${lock}"
+      return
     fi
   fi
 
