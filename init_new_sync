@@ -3,14 +3,14 @@
 #
 
 # Specify location of sync script
-scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
+scriptDir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 source "$scriptDir/logging"
 source "$scriptDir/utils"
 
 showHelp () 
 {
   cat <<EOF
-`basename "$0"` [options] [Sync_Script_Options] [{SVN_FOLDER_A}]
+`basename "$BASH_SOURCE"` [options] [Sync_Script_Options] [{SVN_FOLDER_A}]
 
 This script should be called by scheduler to sync change between SVN and Git 
 repositories.
@@ -229,7 +229,7 @@ setDefaultSettings()
   sync="${scriptDir}/sync"
 
   # Set default temp folder
-  logFile="`basename "$0"`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
+  logFile="`basename "$BASH_SOURCE"`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
   logDir="/tmp"
 
   max_threads=5

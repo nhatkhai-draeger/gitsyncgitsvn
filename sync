@@ -1,12 +1,12 @@
 #!/bin/bash 
 #!/bin/bash -x
-scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
+scriptDir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 source "$scriptDir/logging"
 
 showHelp () 
 {
   cat <<EOF
-`basename "$0"` [options]
+`basename "$BASH_SOURCE"` [options]
 
 This script help sync change between SVN and Git repositories.
 
@@ -134,8 +134,8 @@ cleanUp
 setDefaultSettings()
 {
   curDir="`pwd`"
-  myDir="`dirname "$0"`"
-  tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID"
+  myDir="`dirname "$BASH_SOURCE"`"
+  tmp="/tmp/`basename $BASH_SOURCE`_`date +%m%d%y_%H%M%S`_$BASHPID"
   emailFile=$tmp/emails
   local temp=`cygpath -m "$tmp"`
   if [ $? == 0 ]; then tmp=$temp; fi

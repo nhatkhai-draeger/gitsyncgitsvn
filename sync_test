@@ -1,6 +1,6 @@
 #!/bin/bash 
 #!/bin/bash -x
-scriptDir="$(cd "$(dirname "$0")"; pwd -P)"
+scriptDir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 source "$scriptDir/logging"
 
 LOG_SKIP="\e[1m\e[49m\e[39mSKIP\e[0m\e[49m\e[39m"
@@ -13,7 +13,7 @@ ASSERT_FAIL="\e[1m\e[31mFAIL\e[0m\e[39m"
 showHelp () 
 {
   cat <<EOF
-`basename "$0"` [options] [TESTNAME...]
+`basename "$BASH_SOURCE"` [options] [TESTNAME...]
 
 Run any or all tests
 
@@ -241,7 +241,7 @@ normalTest()
 setDefaultSettings()
 {
   curDir="`pwd`"
-  tmp="/tmp/`basename $0`_`date +%m%d%y_%H%M%S`_$BASHPID"
+  tmp="/tmp/`basename $BASH_SOURCE`_`date +%m%d%y_%H%M%S`_$BASHPID"
   mkdir -p "$tmp"
 
   tests=()
