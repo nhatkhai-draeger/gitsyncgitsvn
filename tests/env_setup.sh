@@ -8,8 +8,8 @@ cnt=`cygcheck -c -d "${cygmods[@]}" | wc -l`
     net use x: \\\\att.corp.draeger.global\\distribution \
       /user:corp\\`whoami`
     IFS=","
-    /cygdrive/x/3rdParties/cygwin64_setup/setup-x86.exe -q \
-      -l x:\\3rdParties\\cygwin64_setup -L -P "${cygmods[*]}"
+    /cygdrive/x/3rdParties/cygwin_setup/setup-x86.exe -q \
+      -l x:\\3rdParties\\cygwin_setup -L -P "${cygmods[*]}"
   fi 
 )
 
