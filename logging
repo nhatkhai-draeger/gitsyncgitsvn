@@ -200,18 +200,18 @@ ${tmp//\\/\\\\}"
   # Add indent space before each lines
   out="${out//$'\n'/${LOG_EOL}${LOG_INDENT}$LOG_LINECONT $LOG_LINEMSG}$LOG_EOL"
 
-  pre=`eval printf "\"${LOG_PREFIX[@]}\""` \
+  pre=`eval printf "%s " "\"${LOG_PREFIX[@]}\""` \
     || (echo ${LOG_PREFIX[@]}; echo `caller`; exit 1)
 
   out="${pre}${out}"
 
   # Print message to console using flock if specified
   if [[ -z "$LOG_LOCK_FILE" ]]; then
-      printf "$out"
+      printf "${out//%/%%}"
   else
     (
       flock -n 9
-      printf "$out"
+      printf "${out//%/%%}"
     ) 9> $LOG_LOCK_FILE
   fi
 }
