@@ -19,11 +19,11 @@ LOG_LEVEL_DEBUG=4
 if [[ -z ${LOG_PREFIX+x} ]]; then
    LOG_DEBUG="\e[1m\e[47mDEBUG"
     LOG_INFO=" \e[1mINFO"
-    LOG_NOTE=" \e[1m\e[42m\e[97mNOTE\e[49m\e[39m"
-    LOG_WARN=" \e[1m\e[43m\e[97mWARN\e[49m\e[39m"
-   LOG_ERROR="\e[1m\e[41m\e[97mERROR\e[49m\e[39m"
+    LOG_NOTE=" \e[1m\e[42m\e[97mNOTE\e[0m\e[1m"
+    LOG_WARN=" \e[1m\e[43m\e[97mWARN\e[0m\e[1m"
+   LOG_ERROR="\e[1m\e[41m\e[97mERROR\e[0m\e[1m"
 
-     LOG_EOL='\e[49m\e[0m\n'
+     LOG_EOL='\e[0m\n'
  LOG_LINEMSG='\e[1m'
 LOG_LINECONT='   --'
   LOG_PREFIX=('$time ' '[${file}${line}] ' '$lvlName ')

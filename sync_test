@@ -3,12 +3,12 @@
 scriptDir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 source "$scriptDir/logging"
 
-LOG_SKIP="\e[1m\e[49m\e[39mSKIP\e[0m\e[49m\e[39m"
-LOG_PASS="\e[1m\e[42m\e[97mPASS\e[0m\e[49m\e[39m"
-LOG_FAIL="\e[1m\e[41m\e[97mFAIL\e[0m\e[49m\e[39m"
+LOG_SKIP="\e[1mSKIP\e[0m"
+LOG_PASS="\e[1m\e[42m\e[97mPASS\e[0m"
+LOG_FAIL="\e[1m\e[41m\e[97mFAIL\e[0m"
 
-ASSERT_PASS="\e[1m\e[32mPASS\e[0m\e[39m"
-ASSERT_FAIL="\e[1m\e[31mFAIL\e[0m\e[39m"
+ASSERT_PASS="\e[1m\e[32mPASS\e[0m"
+ASSERT_FAIL="\e[1m\e[31mFAIL\e[0m"
 
 showHelp () 
 {
