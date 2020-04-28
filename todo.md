@@ -1,14 +1,24 @@
-# Current issues:
-* git svn dcommit use differ svn user for commits
-* git rebase need to reserve it's original author info
-* one incident a merge from git to svn that left minor file content
-  differences (sim_report.txt were the one)
+# Issues:
+## Known:
+None
 
-# Wish list
-* When run on jenkins - still have dependency on nodes for global
-  .gitconfig
-* When run on jenkins - assuming nodes have git-lfs, cygwin git, cygwin
-  bash, scheduler cygwin home setting
+## Wish list
+None
+
+## Fixed
+* (Solved) When run on jenkins - assuming nodes have git-lfs, cygwin git, cygwin
+  bash, scheduler cygwin home setting: Control all significant environment
+  variables.
+* (Solved) When run on jenkins - still have dependency on nodes for global
+  .gitconfig: Control all significant environment variables, and point to
+  the special .gitconfig for the project while run.
+* (Solved) git svn dcommit use differ svn user for commits: by using svn
+  commit hook to fix the author base on commit message.
+* (Solved) git rebase need to reserve it's original author info.
+* (Solved) one incident a merge from git to svn that left minor file content
+  differences (sim_report.txt were the one). Manually fix the project
+  history on git side. The cause of the problem  where rebase code that did
+  not take care submodules and normal file commit correctly.
 
 # Initial ideas
 ## Manual trial
