@@ -23,6 +23,7 @@ pipeline
     HOME        = pwd( tmp: true )
     TMP         = pwd( tmp: true )
     TEMP        = pwd( tmp: true )
+    PATH        = "$ProgramFiles\\Git LFS;$PATH"
   }
 
   stages
@@ -42,34 +43,27 @@ pipeline
 
       retry(7) { sleep(binding.variables.putIfAbsent('delay', 20)?:0)
         checkout scm: scm }
-    } /*steps*/ } /*syntax stage*/ 
+    } /*steps*/ } /*stage*/ 
 
-    stage("setup") 
+    stage("setup") { steps 
     { 
-      steps 
-      { 
-        // Install cygwin
-        bat """$CIUTILS getCygPkg https://cygwin.com/setup-x86_64.exe \
-          git git-svn subversion sed gawk bash"""
+      // Install cygwin
+      bat """$CIUTILS getCygPkg https://cygwin.com/setup-x86_64.exe \
+        git git-svn subversion sed gawk bash"""
 
-        // Install Git LFS if not found
-        bat """where git-lfs \
-          || $CIUTILS runUrl \
-            https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/git-lfs-windows-v2.10.0.exe\
-            /VERYSILENT
-        """
-      } /*steps*/ 
-    } /*syntax stage*/ 
+      // Install Git LFS if not found
+      bat """IF NOT EXIST "$ProgramFiles\\Git LFS\\git-lfs.exe" \
+        $CIUTILS runUrl \
+          https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/git-lfs-windows-v2.10.0.exe\
+          /VERYSILENT
+      """
+    } /*steps*/ } /*stage*/ 
 
-    stage("main") 
-    { 
-      environment { PATH = "$ProgramFiles\\Git LFS;$SystemRoot\\system32" }
-      parallel 
-      {
-        stage("syntax") { steps { bat "$CIUTILS runBash ./cijobs.sh syntax" } }
-        stage("test"  ) { steps { bat "$CIUTILS runBash ./cijobs.sh test"   } }
-      } /*parallel*/ 
-    } /*stage*/
+    stage("main") { parallel 
+    {
+      stage("syntax") { steps { bat "$CIUTILS runBash ./cijobs.sh syntax" } }
+      stage("test"  ) { steps { bat "$CIUTILS runBash ./cijobs.sh test"   } }
+    } /*parallel*/ } /*stage*/
   }
 
   post
