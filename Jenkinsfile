@@ -13,7 +13,7 @@ pipeline
   environment {
     cacheL1     = "$BASE\\caches"
     cacheL2     = "\\\\att\\distribution\\cached"
-    http_proxy  = "http://185.46.212.91:80"
+    ci_proxy    = "http://185.46.212.91:80"
     CIUTILS     = "${pwd( tmp: true )}\\ciUtils.cmd"
 
     // Bellow try to use clean windows environment
