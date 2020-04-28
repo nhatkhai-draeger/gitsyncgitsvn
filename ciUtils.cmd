@@ -20,29 +20,31 @@
 @REM   download   FILE_URL
 @REM   doCurl     URL OUTFILE [CURL_OPTION...]
 @REM
-@REM   getLocalPath SHARE_FOLDER_PATH
+@REM   gitFetchCache GIT_URL [[GIT_CACHED_ROOT...] REFERENCE_CACHE]
+@REM
+@REM   getLocalPath   SHARE_FOLDER_PATH
 @REM 
 @REM ENVIRONMENT VARIABLES (OPTIONAL):
 @REM   cacheL1     point to local folder for cache downloaded files.
 @REM               Otherwise, current directory will be use.
-@REM 
 @REM   cacheL2     point to share cache folder for downloaded files
 @REM
-@REM   http_proxy  for http proxy server
+@REM   ci_proxy    for http/https proxy server if http_proxy not specified
+@REM   http_proxy  for http/https proxy server (doCurl, getCygPkg)
+@REM   https_proxy for https proxy server (doCurl, getCygPkg)
 @REM
-@REM   https_proxy for https proxy server
-@REM
+@REM   CURL        specify full path of curl command
 @REM   curl_cab    location of curl executable package in case curl command
 @REM               not available. Can be obtain from:
 @REM          * https://curl.haxx.se/dlwiz/?type=bin&os=Win32&flav=-&ver=*
 @REM          * Pre-download share folder
 @REM
-@REM   CURL        specify full path of curl command
-@REM   BASH_CMD    specify location of bash.exe command
-@REM
+@REM   CYGCHECK_CMD specify location of cygwin cygcheck.exe
 @REM   cygwin_url  specify cygwin setup URL use for installation
 @REM   cyg_mirror  point to cygwin mirror URL
 @REM   cyg_cache   point to share folder cygwin downloaded pkgs.
+@REM
+@REM   BASH_CMD     specify location of bash.exe command
 @REM
 @REM EXAMPLE:
 @REM   ciUtils.cmd runBash ls -al
@@ -51,14 +53,14 @@
 @REM   ciUtils.cmd doCurl https://cygwin.com/setup-x86.exe -o test.exe
 @REM
 @IF "%CIUTILS_TRACE%" == "" @ECHO off
-IF "%~1" == ""       GOTO :HELP
-IF "%~1" == "/?"     GOTO :HELP
-IF "%~1" == "help"   GOTO :HELP
-IF "%~1" == "-h"     GOTO :HELP
-IF "%~1" == "--help" GOTO :HELP
+IF "%~1" == ""       GOTO HELP
+IF "%~1" == "/?"     GOTO HELP
+IF "%~1" == "help"   GOTO HELP
+IF "%~1" == "-h"     GOTO HELP
+IF "%~1" == "--help" GOTO HELP
 
-IF "%http_proxy%"=="" ECHO WARN: %%http_proxy%% may need
-IF "%cacheL2%"   =="" ECHO WARN: %%cacheL2%% may need
+IF "%http_proxy%%ci_proxy%"=="" ECHO WARN: %%http_proxy%% or %%ci_proxy%% may need
+IF "%cacheL2%"             =="" ECHO WARN: %%cacheL2%% may need
 
 CALL :%*
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
@@ -86,8 +88,9 @@ REM         downloaded files. Otherwise, current directory will be use.
 REM @param %cacheL2%     (optional) point to share cache folder for
 REM         downloaded files
 REM
-REM @param %http_proxy%  (optional) for http proxy server for 
+REM @param %http_proxy%  (optional) for http/https proxy server for 
 REM @param %https_proxy% (optional) for https proxy server for
+REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %CURL%        (optional) specify full path of curl command
 REM @param %curl_cab%    (optional) location of curl executable package in
 REM         case curl command not available
@@ -127,6 +130,7 @@ REM @param %cacheL1%     (optional) point to local folder for cache
 REM         downloaded files. Otherwise, current directory will be use.
 REM @param %cacheL2%     (optional) point to share folder for cache
 REM         downloaded files
+REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for proxy server for http*
 REM @param %https_proxy% (optional) for proxy server for https
 REM @param %CURL%        (optional) specify full path of curl command
@@ -175,6 +179,7 @@ REM @param %cacheL1%     (optional) point to local folder for cache
 REM         downloaded files. Otherwise, current directory will be use.
 REM @param %cacheL2%     (optional) point to share folder for cache
 REM         downloaded files
+REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for proxy server for http*
 REM @param %https_proxy% (optional) for proxy server for https
 REM @param %CURL%        (optional) specify full path of curl command
@@ -190,7 +195,7 @@ SETLOCAL
 SET url=%~1
 SET opts=
 :runUrl_OptsLoop
-  shift
+  SHIFT
   IF NOT "%~1"=="" SET opts=%opts% %1 && GOTO runUrl_OptsLoop 
 
 IF "%url%"=="" EXIT /b 1
@@ -224,7 +229,7 @@ SETLOCAL
 DEL /F .ret.runOnce 2>/nul
 :runOnce_loop
   ECHO "%~1">> .ret.runOnce
-  shift
+  SHIFT
   IF NOT "%~1"=="" GOTO runOnce_loop
 
 IF "%InstIdsPath%"=="" SET InstIdsPath=C:
@@ -248,19 +253,21 @@ REM @param %1 cygwin executable setup URL. When empty string, the default
 REM         hard coded cygwin URL will be use
 REM @param %2.. (optional) list of cygwin packages
 REM
-REM @param %cyg_mirror%  (optional) point to cygwin mirror URL
-REM @param %cyg_cache%   (optional) point to share folder cygwin downloaded
-REM         pkgs.
+REM @param %cyg_mirror%   (optional) point to cygwin mirror URL
+REM @param %cyg_cache%    (optional) point to share folder cygwin
+REM         downloaded pkgs.
+REM @param %CYGCHECK_CMD% (optional) location of cygwin cygcheck.exe
 REM
-REM @param %cacheL1%     (optional) point to local folder for cache
+REM @param %cacheL1%      (optional) point to local folder for cache
 REM         downloaded files. Otherwise, current directory will be use.
-REM @param %cacheL2%     (optional) point to share cache folder for
+REM @param %cacheL2%      (optional) point to share cache folder for
 REM         downloaded files
 REM
-REM @param %http_proxy%  (optional) for http proxy server for 
-REM @param %https_proxy% (optional) for https proxy server for
-REM @param %CURL%        (optional) specify full path of curl command
-REM @param %curl_cab%    (optional) location of curl executable package in
+REM @param %ci_proxy%     (optional) use when http_proxy not specified
+REM @param %http_proxy%   (optional) for http proxy server for 
+REM @param %https_proxy%  (optional) for https proxy server for
+REM @param %CURL%         (optional) specify full path of curl command
+REM @param %curl_cab%     (optional) location of curl executable package in
 REM         case curl command not available
 REM
 REM @exception error code for failure of installation
@@ -316,6 +323,7 @@ IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 FOR /F %%a IN (.ret) DO SET cygSetup=%%a
 SET opts=--quiet-mode --no-desktop --no-shortcuts --no-startmenu --only-site
 
+IF     "%http_proxy%" == "" SET http_proxy=%ci_proxy%
 IF NOT "%http_proxy%" == "" SET opts=%opts% --proxy "%http_proxy%"
 
 IF "%cyg_mirror%" == "" (
@@ -352,6 +360,7 @@ REM @param %cacheL1%     (optional) point to local folder for cache
 REM         downloaded file. Otherwise, current directory will be use
 REM @param %cacheL2%     (optional) point to share folder for cache
 REM         downloaded files.
+REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for http proxy server for 
 REM @param %https_proxy% (optional) for https proxy server for
 REM @param %CURL%        (optional) specify full path of curl command
@@ -414,6 +423,7 @@ REM @param %1 Specified URL for download
 REM @param %2 Specified full file path for storage the downloaded file
 REM @param %3.. (Optional) addition curl arguments
 REM
+REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for http proxy server for 
 REM @param %https_proxy% (optional) for https proxy server for
 REM @param %CURL%        (optional) specify full path of curl command
@@ -473,6 +483,7 @@ IF "%curlOpts%"=="" SET curlOpts= --insecure --location
 
 REM Determine which proxy to use
 SET use_proxy=%http_proxy%
+IF "%use_proxy%" == "" SET use_proxy=%ci_proxy%
 IF NOT "%https_proxy%"=="" (
   SET protocol=
   FOR /F "delims=:" %%a IN ("%~1") DO SET protocol=%%a
@@ -490,7 +501,137 @@ EXIT /b 0
 
 
 REM 
-REM FUNCTION getLocalPath: map share drive to local path if possible
+REM FUNCTION gitFetchCache: run git fetch to all cached repositories
+REM
+REM @param %1     Specified the branch to cached. Empty will cached all
+REM         branches
+REM @param %2     Specified the root git repository URL
+REM @param %3     Specified absolute path for a cache git repository use
+REM         for reference clone command
+REM
+REM @param %GIT_CMD% (optional) path of git.exe for use as git command.
+REM         Otherwise default git command would be use.
+REM
+REM @exception exit with ERRORLEVEL if fail
+REM
+REM @example Below show how to avoid slow download many time by cached each
+REM git repository in a share network folder at \\l2, and a local reference
+REM repos c:\l1\RefRepos that contains objects of all the git repos:
+REM
+REM   ciutils.cmd gitFetchCache master ssh://git@stash/sp1/repoA \\l2
+REM   git clone ssh://git@stash/sp1/repoA --reference \\l2
+REM
+REM @test CALL :gitFetchCache master ssh://git@stash.draeger.com:7999/att/ciutils.git c:\l1
+REM
+:gitFetchCache
+SETLOCAL EnableDelayedExpansion
+SET branch=%~1
+SET srcRepo=%~2
+SET repoName=%~n2
+SHIFT
+SHIFT
+
+IF "%GIT_CMD%"=="" SET GIT_CMD=git
+
+IF "%branch%"=="" (
+  REM Handling the case branch is empty mean all branches
+  SET fetchOpts=
+  SET cloneOpts=--bare
+) ELSE (
+  REM Handling the case of specific branch
+  SET fetchOpts= "%branch%"
+  SET cloneOpts=--bare -b "%branch%"
+)
+
+SET desRepo=%~1
+SET desRemote=%repoName%
+
+ECHO %TIME% Updating %desRepo% from %srcRepo%...
+REM If the cache folder do not exists, run a git clone first
+IF NOT EXIST "%desRepo%\objects" (
+  "%GIT_CMD%" clone %cloneOpts% "%srcRepo%" "%desRepo%"
+  IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+)
+
+PUSHD "%desRepo%"
+IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+
+REM Add remote url, and verify if the URL are the same
+"%GIT_CMD%" remote add "%desRemote%" "%srcRepo%" 2>/nul
+IF ERRORLEVEL 1 (
+  "%GIT_CMD%" remote get-url "%desRemote%" > .tmp.gitFetchCache
+  FOR /F "delims=" %%a IN (.tmp.gitFetchCache) DO (
+    IF /I NOT "%%~a"=="%srcRepo%" (
+      ECHO Remote %desRemote% is point other repos of %%a"
+      EXIT /b 1
+    )
+  )
+)
+
+echo %TIME%   Fetch NON-LFS
+"%GIT_CMD%" fetch --prune "%desRemote%" %fetchOpts%
+IF ERRORLEVEL 1 ECHO Cannot fetch %desRemote% && EXIT /b 1
+
+REM Check if there are filter.lfs defined before do LFS fetch
+git config --get-regex ^^filter\.lfs 1>/nul
+IF NOT ERRORLEVEL 1 (
+  echo %TIME%   Fetch LFS
+  "%GIT_CMD%" lfs fetch "%desRemote%"
+  IF ERRORLEVEL 1 ECHO Cannot fetch %desRemote% lfs && EXIT /b 1
+)
+
+REM Look for .gitmodules and find all submodule url, and branch
+IF NOT "%branch%" == "" (
+  echo %TIME%   Check %desRemote%/%branch%:.gitmodules
+
+  REM Get list of submodule names
+  "%GIT_CMD%" show "%desRemote%/%branch%":.gitmodules ^
+    >.tmp.gitFetchCache.mod 2>/nul
+
+  "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --name-only ^
+    --get-regexp "^submodule\.(.+)\.url" >.tmp.gitFetchCache.name 2>/nul
+
+  REM Get list of submodule branch and url
+  ECHO.>.tmp.gitFetchCache.args
+  FOR /F "delims=" %%a IN (.tmp.gitFetchCache.name) DO (
+    SET name=%%a
+    SET name=!name:~0,-3!
+    ECHO %TIME%   Found !name!
+    ECHO !name:~10,-1!>> .tmp.gitFetchCache.args
+    "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --get "!name!branch" ^
+      >> .tmp.gitFetchCache.args
+    "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --get "!name!url" ^
+      >> .tmp.gitFetchCache.args
+    ECHO />> .tmp.gitFetchCache.args
+  )
+
+  REM Save data into a local variable
+  SET myArgs=
+  FOR /F "delims=" %%a IN (.tmp.gitFetchCache.args) DO SET myArgs=!myArgs!"%%a" 
+
+  REM Call gitFetchCache for all submodule recursively
+  SET modName=
+  SET modBranch=
+  SET modUrl=
+  FOR %%a IN (!myArgs!) DO (
+    IF %%a=="/" (
+      IF !modBranch!=="." SET modBranch="master"
+      IF !modBranch!==""  SET modBranch=!modName!
+      ECHO %TIME% Submodule !modName!
+      CALL :gitFetchCache !modBranch! !modUrl! . 
+      IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+    )
+    SET modName=!modBranch!
+    SET modBranch=!modUrl!
+    SET modUrl=%%a
+  )
+)
+POPD
+EXIT /b 0
+
+
+REM 
+REM FUNCTION getLocalPath: map or reuse share drive to local path if possible
 REM
 REM @param %1 Specified a path (local or share drive)
 REM @param %2 (Optional) user name access the share
@@ -501,6 +642,8 @@ REM
 REM @note This function may ask for user name, and password. To avoid that,
 REM run "net use %1 /USER:username password" before call this function. Or
 REM specify %2, and %3 parameters.
+REM
+REM @note PUSHD command also do the network map automatically
 REM
 REM @test CALL :getLocalPath \\share\xyz
 REM       .ret should contains X: if the \\share\xyz exist
