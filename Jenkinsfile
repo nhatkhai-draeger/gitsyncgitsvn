@@ -18,49 +18,58 @@ pipeline
 
     // Bellow try to use clean windows environment
     APPDATA     = pwd( tmp: true )
-    LOCALAPPDATA= "$APPDATA"
+    LOCALAPPDATA= pwd( tmp: true )
     USERPROFILE = pwd( tmp: true )
-    HOME        = "$USERPROFILE"
+    HOME        = pwd( tmp: true )
     TMP         = pwd( tmp: true )
-    TEMP        = "$TMP"
-    PATH        = "$env.ProgramFiles\\Git LFS;$env.PATH"
+    TEMP        = pwd( tmp: true )
   }
 
   stages
   {
-    // Checkout the repository. Install git if the agent machine don't have
-    // git installed
+    // Checkout the repository. Install Windows Git if the agent machine
+    // don't have git installed
     stage('checkout') { steps 
     {
-      writeFile file: "$CIUTILS",
-                text: readTrusted("ciUtils.cmd")
+      writeFile file: "$CIUTILS", text: readTrusted("ciUtils.cmd")
 
-      bat """where git \
-        || $CIUTILS runUrl https://github.com/git-for-windows/git/releases/download/v2.22.0.windows.1/Git-2.22.0-64-bit.exe /VERYSILENT \
-        && echo "There will be errors until Agent reboot completed" \
-        && shutdown /r /t 0""" 
+      lock( NODE_NAME ) { bat """where git \
+        || echo THERE WILL BE ERRORS UNTIL AGENT REBOOT COMPLETED \
+        && $CIUTILS runUrl \
+              https://github.com/git-for-windows/git/releases/download/v2.22.0.windows.1/Git-2.22.0-64-bit.exe \
+              /VERYSILENT \
+        && shutdown /r /t 0""" }
 
-      // In case of agent machine booting, try long enough before it ready
-      retry(200) { sleep(3); checkout scm: scm }
+      retry(7) { sleep(binding.variables.putIfAbsent('delay', 20)?:0)
+        checkout scm: scm }
     } /*steps*/ } /*syntax stage*/ 
 
-    stage("setup") { steps 
+    stage("setup") 
     { 
-      // Install cygwin
-      bat """$CIUTILS getCygPkg https://cygwin.com/setup-x86_64.exe \
-        git git-svn subversion sed gawk bash"""
+      steps 
+      { 
+        // Install cygwin
+        bat """$CIUTILS getCygPkg https://cygwin.com/setup-x86_64.exe \
+          git git-svn subversion sed gawk bash"""
 
-      // Install Git LFS if not found
-      bat """where git-lfs \
-        || $CIUTILS runUrl https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/git-lfs-windows-v2.10.0.exe /VERYSILENT
-      """
-    } /*steps*/ } /*syntax stage*/ 
+        // Install Git LFS if not found
+        bat """where git-lfs \
+          || $CIUTILS runUrl \
+            https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/git-lfs-windows-v2.10.0.exe\
+            /VERYSILENT
+        """
+      } /*steps*/ 
+    } /*syntax stage*/ 
 
-    stage("main") { parallel 
-    {
-      stage("syntax") { steps { bat "$CIUTILS runBash ./cijobs.sh syntax" } }
-      stage("test"  ) { steps { bat "$CIUTILS runBash ./cijobs.sh test"   } }
-    } /*parallel*/ } /*stage*/
+    stage("main") 
+    { 
+      environment { PATH = "$ProgramFiles\\Git LFS;$SystemRoot\\system32" }
+      parallel 
+      {
+        stage("syntax") { steps { bat "$CIUTILS runBash ./cijobs.sh syntax" } }
+        stage("test"  ) { steps { bat "$CIUTILS runBash ./cijobs.sh test"   } }
+      } /*parallel*/ 
+    } /*stage*/
   }
 
   post
