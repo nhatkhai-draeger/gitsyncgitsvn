@@ -5,15 +5,18 @@ cnt=`cygcheck -c -d "${cygmods[@]}" | wc -l`
 ( 
   if [[ $(($cnt-2)) -lt ${#cygmods[@]} ]]; then
     NOTE "## Install required cygwin modules"
-    net use x: \\\\att.corp.draeger.global\\distribution \
-      /user:corp\\`whoami`
+    net use '\\att.corp.draeger.global\distribution' /user:corp\\`whoami`
     IFS=","
-    /cygdrive/x/3rdParties/cygwin_setup/setup-x86.exe -q \
-      -l x:\\3rdParties\\cygwin_setup -L -P "${cygmods[*]}"
+    //att.corp.draeger.global/distribution/3rdParties/cygwin_setup/setup-x86.exe\
+      -l //att.corp.draeger.global/distribution/3rdParties/cygwin_setup\
+      -q -L -P "${cygmods[*]}"
   fi 
 )
 
 INFO "# Configure test environment"
+if [[ "$HOME" != "`pwd`" ]]; then
+  WARN "HOME should be set to `pwd`"
+fi
 git config --global user.email "test@email.com"
 git config --global user.name "tester"
 
