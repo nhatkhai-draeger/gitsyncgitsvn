@@ -16,15 +16,17 @@ syntax()
 
 test()
 {
+shift
 mkdir tmp 2>/dev/null
 pushd tmp
-../sync_test -v -f || exit $?
+export HOME="`pwd`"
+../sync_test -v -f "$@" || exit $?
 popd
 }
 
 while true; do
   [[ $1 =~ ^(syntax|)$ ]] && syntax
-  [[ $1 =~ ^(test|)$   ]] && test
+  [[ $1 =~ ^(test|)$   ]] && test "$@"
   shift;
   [[ -z "$1" ]] && break;
 done

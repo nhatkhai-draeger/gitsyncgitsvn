@@ -14,9 +14,13 @@ cnt=`cygcheck -c -d "${cygmods[@]}" | wc -l`
 )
 
 INFO "# Configure test environment"
-if [[ "$HOME" != "`pwd`" ]]; then
-  WARN "HOME should be set to `pwd`"
+if [[ -f "$HOME/.gitconfig" ]]; then
+  if [[ ! "$HOME" -ef "`pwd`" ]]; then
+    ERROR "HOME should be set to `pwd`"
+    exit 1
+  fi
 fi
+echo "$HOME/.gitconfig" >> clean_list
 git config --global user.email "test@email.com"
 git config --global user.name "tester"
 
