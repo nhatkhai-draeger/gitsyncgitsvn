@@ -346,7 +346,7 @@ init_fetchNewSvnFolder()
   INFO "****** Create new branch $lfsBranch"
   # TODO: git branch command some time fail for the 1st run while operate
   # under mapped network drive
-  retry 2 git branch "$lfsBranch" "$svnRemote"
+  retry 4 git branch "$lfsBranch" "$svnRemote"
   exitIfErr 1 "Cannot create $lfsBranch branch"
 
   if [[ ! -z "$lfsFilter" ]]; then
@@ -370,16 +370,16 @@ init_fetchNewSvnFolder()
   fi
 
   local backupBranch="backup/${gitBranch}_`date +%m%d%y_%H%M%S`"
-  retry 2 git branch -f "$backupBranch" "$gitBranch"
+  retry 4 git branch -f "$backupBranch" "$gitBranch"
   if [ $? == 0 ]; then
     INFO "****** Backup $gitBranch branch to $backupBranch"
   fi
 
   INFO "****** Set $gitBranch branch to $lfsBranch"; 
-  retry 2 git branch -f "$gitBranch" "$lfsBranch"
+  retry 4 git branch -f "$gitBranch" "$lfsBranch"
   exitIfErr 1 "Cannot set $gitBranch to $lfsBranch"
 
-  retry 2 git push -f -u $gitRemote "$lfsBranch"
+  retry 4 git push -f -u $gitRemote "$lfsBranch"
   exitIfErr 1 "Cannot push $lfsBranch into $gitRemote"
 
   git push -f -u $gitRemote "$gitBranch"
@@ -408,7 +408,7 @@ syncSVNtoGIT()
 
   if [[ $svnSHA1 == $svnNewSHA1 ]]; then
     INFO "Make sure $lfsBranch sync with the server"
-    retry 2 git push -f -u $gitRemote "$lfsBranch"
+    retry 4 git push -f -u $gitRemote "$lfsBranch"
     exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
 
     INFO "No new SVN commits to work on."
@@ -419,7 +419,7 @@ syncSVNtoGIT()
   INFO "****** Put new SVN commits ${svnSHA1:0:8}..${svnNewSHA1:0:8} \
     onto $lfsBranch"
 
-  retry 2 git branch -f "$tryLfsMerge" "$svnRemote"
+  retry 4 git branch -f "$tryLfsMerge" "$svnRemote"
   exitIfErr 1 "Cannot create a temporary branch $tryLfsMerge"
 
   # Extract list of committers' email
@@ -520,7 +520,7 @@ syncSVNtoGIT()
   exitIf "$? != 0 && $? != 2" $? \
     "Cannot readjust committer info onto $tryLfsMerge!"
 
-  retry 2 git branch -f "$lfsBranch"
+  retry 4 git branch -f "$lfsBranch"
   exitIfErr 1 "Cannot move $lfsBranch to new rebase tip!"
   local lfsNewSHA1=`getSHA1 "$lfsBranch"`
   DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
@@ -536,7 +536,7 @@ syncSVNtoGIT()
     read -p "Check before push result into server...."
   fi
 
-  retry 2 git push -f -u $gitRemote "$lfsBranch"
+  retry 4 git push -f -u $gitRemote "$lfsBranch"
   exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
 }
 
@@ -558,7 +558,7 @@ syncGITtoSVN()
   git fetch $gitRemote "$gitBranch"
   exitIfErr 1 "Cannot pull $gitBranch from $gitRemote"
 
-  retry 2 git branch -f "$gitBranch" $gitRemote/"$gitBranch"
+  retry 4 git branch -f "$gitBranch" $gitRemote/"$gitBranch"
   exitIfErr 1 "Cannot link $gitBranch with $gitRemote"
 
   local gitSHA=`getSHA1 "$gitBranch"`
@@ -584,7 +584,7 @@ syncGITtoSVN()
     #   \./
     # *--*--* <--lfsBranch
     INFO "****** Fast-forward $gitBranch to $lfsBranch"
-    retry 2 git branch -f "$gitBranch" "$lfsBranch"
+    retry 4 git branch -f "$gitBranch" "$lfsBranch"
     exitIfErr 1 "Cannot fast forward $gitBranch to $lfsBranch"
     
   else
@@ -596,7 +596,7 @@ syncGITtoSVN()
     #
     # Rebase git commit into svnBranch for dcommit
     INFO "****** Put new git commits onto $svnRemote"
-    retry 2 git branch -f "$tryMerge" "$gitBranch"
+    retry 4 git branch -f "$tryMerge" "$gitBranch"
     exitIfErr 1 "Cannot create branch from $gitBranch"
 
     git lfs uninstall --local 2>/dev/null
@@ -806,7 +806,7 @@ syncGITtoSVN()
     INFO "****** Try to update $lfsBranch and $gitBranch after dcommits"
 
     # Re-estimate commits that correct committed into SVN on gitBranch
-    retry 2 git branch -f "$tryLfsMerge" "$gitBranch"\~$uncommittedCnt
+    retry 4 git branch -f "$tryLfsMerge" "$gitBranch"\~$uncommittedCnt
     exitIfErr 1 "Cannot mark commits on $gitBranch that committed into SVN"
 
     if [[ $uncommittedCnt != 0 ]]; then
@@ -856,13 +856,13 @@ syncGITtoSVN()
         "Cannot readjust committer info onto $gitBranch!"
     fi
 
-    retry 2 git branch -f "$svnBranch" "$svnRemote"
+    retry 4 git branch -f "$svnBranch" "$svnRemote"
 
     if [ "$prompt" == "yes" ]; then
       read -p "Check before push to remote, Press Enter...."
     fi
 
-    retry 2 git push -f -u $gitRemote "$lfsBranch"
+    retry 4 git push -f -u $gitRemote "$lfsBranch"
     exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
   fi
 
@@ -989,6 +989,7 @@ retry()
     ((tryCnt+=1))
     if [[ $tryCnt -gt 1 ]]; then
       WARN "Try #$tryCnt -- make sure previous fail aren't real" 
+      sleep 1
     fi
 
     "$@"
