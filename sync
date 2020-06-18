@@ -623,7 +623,11 @@ syncGITtoSVN()
 
     if [[ ! -z "$lfsFilter" ]]; then
       echo '
-        git diff "'"$svnRemote"'" HEAD~1 --name-only --diff-filter=d \
+        git diff "'"$svnRemote"'" --cached \
+          --name-only --diff-filter=d > "'"$tmp\rebaseWorkDiff"'"
+        git diff "'"$svnRemote"'" HEAD~1 \
+          --name-only --diff-filter=d >> "'"$tmp\rebaseWorkDiff"'"
+        cat "'"$tmp\rebaseWorkDiff"'" \
           | while read f; do
           head -2 "$f" | sed -ne "s/^oid sha256:\([^ ]*\)/\1/p" \
             | while read ref; do
@@ -632,10 +636,10 @@ syncGITtoSVN()
               cat "$f" | git lfs smudge > "$ref"
               if [ $? != 0 ]; then 
                 rm -f "$ref"
-                >&2 echo "  Cannot remove LFS pointer for $f"
+                >&2 printf "\n  Cannot remove LFS pointer for $f\n"
                 exit 3
               fi
-              echo "  Remove LFS pointer on $f"
+              printf "\n  Remove LFS pointer on $f\n"
             fi
             cp -f "$ref" "$f"
             git add "$f"
