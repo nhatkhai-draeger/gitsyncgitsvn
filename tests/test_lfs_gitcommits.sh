@@ -11,7 +11,8 @@ pushd git_test/proj2_local
 git lfs install --local
 git checkout master
 echo "test2" > file2
-git add file2
+echo "test3" > file3.dat
+git add -- file2 file3.dat
 git commit -m "2nd"
 git push
 popd
