@@ -18,9 +18,9 @@
 @REM   runOnce    COMMANS [OPTIONS...]
 @REM
 @REM   download   FILE_URL
-@REM   doCurl     URL OUTFILE [CURL_OPTION...]
+@REM   doCurl     URL [CURL_OPTION...]
 @REM
-@REM   gitFetchCache GIT_URL [[GIT_CACHED_ROOT...] REFERENCE_CACHE]
+@REM   gitFetchCache BRANCH GIT_URL [CACHE_PATH...]
 @REM
 @REM   getLocalPath   SHARE_FOLDER_PATH
 @REM 
@@ -52,7 +52,8 @@
 @REM   ciUtils.cmd download https://cygwin.com/setup-x86.exe
 @REM   ciUtils.cmd doCurl https://cygwin.com/setup-x86.exe -o test.exe
 @REM
-@IF "%CIUTILS_TRACE%" == "" @ECHO off
+@ECHO off
+IF NOT "%CIUTILS_TRACE%" == "" ECHO on
 IF "%~1" == ""       GOTO HELP
 IF "%~1" == "/?"     GOTO HELP
 IF "%~1" == "help"   GOTO HELP
@@ -61,7 +62,7 @@ IF "%~1" == "--help" GOTO HELP
 
 IF "%http_proxy%%ci_proxy%"=="" ECHO WARN: %%http_proxy%% or %%ci_proxy%% may need
 IF "%cacheL2%"             =="" ECHO WARN: %%cacheL2%% may need
-
+ 
 CALL :%*
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 EXIT /b 0
@@ -114,7 +115,9 @@ IF NOT EXIST "%BASH_CMD%" (
   ECHO Cannot find Bash.exe. Please specify location in BASH_CMD
   EXIT /b 1
 )
-"%BASH_CMD%" -l -c 'cd %CD:\=/%; %*'
+IF "%TMPDIR%"=="" SET TMPDIR=%TMP%
+"%BASH_CMD%" -l -c ^
+  'export TMP="$TMPDIR"; export TEMP="$TMPDIR"; cd "%CD:\=/%"; %*'
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 EXIT /b 0
 
@@ -142,16 +145,18 @@ REM
 REM @test CALL :runMsiUrl https://osdn.mirror.constant.com//storage/g/t/to/tortoisesvn/1.13.1/Application/TortoiseSVN-1.13.1.28686-win32-svn-1.13.0.msi
 REM
 :runMsiUrl
-SETLOCAL EnableDelayedExpansion
+SETLOCAL
 
 REM Separate MSI URL and MSI Options
 SET opts=
 SET url=
-FOR %%a IN (%*) DO (
-  SET opts=!opts! !url!
-  SET url=%%~a
-)
+:runMsiUrlArgLoop
+  SET opts=%opts% %url%
+  SET url=%1
+  SHIFT
+IF NOT "%~1"=="" GOTO :runMsiUrlArgLoop
 
+SET url=%~0
 IF "%url%"=="" EXIT /b 1
 
 REM Try to download and run installer
@@ -203,9 +208,9 @@ IF "%url%"=="" EXIT /b 1
 REM Try to download and run installer
 CALL :download "%url%"
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
-FOR /F %%a IN (.ret) DO SET cmd="%%~a"%opts%
-ECHO %cmd%
-%cmd%
+FOR /F %%a IN (.ret) DO SET cmd=%%~sa
+ECHO %cmd% %opts%
+START /WAIT %cmd% %opts%
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 EXIT /b 0
 
@@ -282,14 +287,14 @@ IF "%CYGCHECK_CMD%"=="" SET CYGCHECK_CMD=C:\cygwin\bin\cygcheck.exe
 IF NOT EXIST "%CYGCHECK_CMD%" SET CYGCHECK_CMD=C:\cygwin64\bin\cygcheck.exe
 IF EXIST "%CYGCHECK_CMD%" (
   DEL /F .reqsMods 2>/nul
-  FOR %%a IN (%*) DO ECHO %%a >> .reqsMods
-  ECHO Cygwin >> .reqsMods
-  ECHO Package >> .reqsMods
+  CALL :getCygPkgGenReqsModsLoop %*
+  ECHO Cygwin>> .reqsMods
+  ECHO Package>> .reqsMods
   "%ComSpec%\..\sort.exe" .reqsMods /O .reqsMods
 
   "%CYGCHECK_CMD%" -c -d %* > .cygMods1
-  ECHO %1 > .cygMods
-  FOR /F %%a IN (.cygMods1) DO ECHO %%a >> .cygMods
+  ECHO.%1> .cygMods
+  FOR /F %%a IN (.cygMods1) DO ECHO.%%a>> .cygMods
   DEL /F .cygMods1
   "%ComSpec%\..\sort.exe" .cygMods /O .cygMods
 
@@ -301,12 +306,14 @@ IF EXIST "%CYGCHECK_CMD%" (
   DEL /F .reqsMods .cygMods
 )
 
+REM Join remain arguments after the 1st with comma
 SET cygMods=%2
-SET /a cnt=1
-FOR %%a IN (%*) DO (
-  IF !cnt! GEQ 3 SET cygMods=!cygMods!,%%a
-  SET /a cnt=!cnt!+1
-)
+:getCygPkgArgModsLoop
+  SHIFT /2
+  IF "%~2"=="" GOTO :getCygPkgArgModsLoopDone
+  SET cygMods=%cygMods%,%2
+  GOTO :getCygPkgArgModsLoop
+:getCygPkgArgModsLoopDone
 
 SET url=%~1
 IF "%url%" == "" (
@@ -344,6 +351,13 @@ ECHO %cygSetup% %opts%
 "%cygSetup%" %opts%
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
+EXIT /b 0
+
+REM Sub function for getCygPkg
+:getCygPkgGenReqsModsLoop
+  ECHO.%1>> .reqsMods
+  SHIFT
+IF NOT "%~1"=="" GOTO :getCygPkgGenReqsModsLoop
 EXIT /b 0
 
 
@@ -409,7 +423,7 @@ IF "%cacheL2%"=="" GOTO download_SkipL2
 :download_SkipL2
 
 REM Try to download the file
-CALL :doCurl %1 "%l1file%"
+CALL :doCurl %1 -o "%l1file%" --insecure --location
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
 IF NOT "%cacheL2%" == "" COPY /Y "%l1file%" "%l2file%" 
@@ -420,8 +434,7 @@ REM
 REM FUNCTION doCurl: Run curl command
 REM
 REM @param %1 Specified URL for download
-REM @param %2 Specified full file path for storage the downloaded file
-REM @param %3.. (Optional) addition curl arguments
+REM @param %2.. (Optional) addition curl arguments
 REM
 REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for http proxy server for 
@@ -455,13 +468,13 @@ IF "%CURL%"=="" IF NOT "%curl_cab%"=="" (
     IF ERRORLEVEL 1 EXIT /b !ERRORLEVEL!
 
     COPY /Y "!curl_cab!" "curl.cab"
-    IF ERRORLEVEL 1 EXIT /b !ERRORLEVEL!
+    IF ERRORLEVEL 1 POPD && EXIT /b !ERRORLEVEL!
 
     IF NOT EXIST curl MKDIR curl
-    IF ERRORLEVEL 1 EXIT /b !ERRORLEVEL!
+    IF ERRORLEVEL 1 POPD && EXIT /b !ERRORLEVEL!
 
     EXPAND curl.cab -F:* curl 
-    IF ERRORLEVEL 1 EXIT /b !ERRORLEVEL!
+    IF ERRORLEVEL 1 POPD && EXIT /b !ERRORLEVEL!
     POPD
   )
 )
@@ -473,14 +486,6 @@ IF NOT EXIST "%CURL%" (
   EXIT /b 1
 )
 
-REM Extract curl options from arguments
-set /a cnt=2
-SET curlOpts=
-FOR %%a IN (%*) DO (
-  IF !cnt! LEQ 0 (SET curlOpts=!curlOpts! %%a) ELSE (set /a cnt=!cnt!-1)
-)
-IF "%curlOpts%"=="" SET curlOpts= --insecure --location
-
 REM Determine which proxy to use
 SET use_proxy=%http_proxy%
 IF "%use_proxy%" == "" SET use_proxy=%ci_proxy%
@@ -489,13 +494,10 @@ IF NOT "%https_proxy%"=="" (
   FOR /F "delims=:" %%a IN ("%~1") DO SET protocol=%%a
   IF "!protocol:~-1!"=="s" SET use_proxy=%https_proxy%
 )
-IF NOT "%use_proxy%" == "" SET curlOpts=%curlOpts% -x "%use_proxy%"
+IF NOT "%use_proxy%" == "" SET use_proxy=-x "%use_proxy%"
 
-IF NOT "%~2"=="" SET curlOpts=%curlOpts% -o %2
-SET curlOpts=%curlOpts% %1
-
-ECHO %CURL%%curlOpts%
-"%CURL%"%curlOpts%
+ECHO %CURL% %* %use_proxy%
+"%CURL%" %* %use_proxy%
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 EXIT /b 0
 
@@ -506,20 +508,19 @@ REM
 REM @param %1     Specified the branch to cached. Empty will cached all
 REM         branches
 REM @param %2     Specified the root git repository URL
-REM @param %3     Specified absolute path for a cache git repository use
-REM         for reference clone command
+REM @param %3..   (Optional) Specified absolute git cache path
 REM
 REM @param %GIT_CMD% (optional) path of git.exe for use as git command.
 REM         Otherwise default git command would be use.
 REM
 REM @exception exit with ERRORLEVEL if fail
 REM
-REM @example Below show how to avoid slow download many time by cached each
-REM git repository in a share network folder at \\l2, and a local reference
+REM @example Below show how to speed up download by cached each git
+REM repository in a share network folder at \\l2, and a local reference
 REM repos c:\l1\RefRepos that contains objects of all the git repos:
 REM
-REM   ciutils.cmd gitFetchCache master ssh://git@stash/sp1/repoA \\l2
-REM   git clone ssh://git@stash/sp1/repoA --reference \\l2
+REM   ciutils.cmd gitFetchCache master ssh://git@stash/sp1/repoA \\l2 c:\l1\RefRepos
+REM   git clone ssh://git@stash/sp1/repoA --reference c:\l1\RefRepos
 REM
 REM @test CALL :gitFetchCache master ssh://git@stash.draeger.com:7999/att/ciutils.git c:\l1
 REM
@@ -527,7 +528,7 @@ REM
 SETLOCAL EnableDelayedExpansion
 SET branch=%~1
 SET srcRepo=%~2
-SET repoName=%~n2
+SET desRemote=%~n2
 SHIFT
 SHIFT
 
@@ -535,99 +536,114 @@ IF "%GIT_CMD%"=="" SET GIT_CMD=git
 
 IF "%branch%"=="" (
   REM Handling the case branch is empty mean all branches
-  SET fetchOpts=
-  SET cloneOpts=--bare
+  SET cloneOpts=
+  SET fetchOpts=--prune "%desRemote%"
 ) ELSE (
   REM Handling the case of specific branch
-  SET fetchOpts= "%branch%"
-  SET cloneOpts=--bare -b "%branch%"
+  SET cloneOpts=-b "%branch%"
+  SET fetchOpts="%desRemote%" "%branch%"
 )
 
-SET desRepo=%~1
-SET desRemote=%repoName%
+REM Loop through all the specified cache path
+SET referenceOpt=
+:gitFetchCaches_Loop
+  IF "%~1"=="" EXIT /b 0
+  SET desRepo=%~1
 
-ECHO %TIME% Updating %desRepo% from %srcRepo%...
-REM If the cache folder do not exists, run a git clone first
-IF NOT EXIST "%desRepo%\objects" (
-  "%GIT_CMD%" clone %cloneOpts% "%srcRepo%" "%desRepo%"
+  ECHO %TIME% Updating %desRepo% from %srcRepo%...
+  REM If the cache folder do not exists, run a git clone first
+  IF NOT EXIST "%desRepo%\objects" (
+    "%GIT_CMD%" clone --bare %cloneOpts% "%srcRepo%" "%desRepo%" %referenceOpt%
+    IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+  )
+
+  PUSHD "%desRepo%"
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
-)
 
-PUSHD "%desRepo%"
-IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
-
-REM Add remote url, and verify if the URL are the same
-"%GIT_CMD%" remote add "%desRemote%" "%srcRepo%" 2>/nul
-IF ERRORLEVEL 1 (
-  "%GIT_CMD%" remote get-url "%desRemote%" > .tmp.gitFetchCache
-  FOR /F "delims=" %%a IN (.tmp.gitFetchCache) DO (
-    IF /I NOT "%%~a"=="%srcRepo%" (
-      ECHO Remote %desRemote% is point other repos of %%a"
-      EXIT /b 1
+  REM Add remote url, and verify if the URL are the same
+  "%GIT_CMD%" remote add "%desRemote%" "%srcRepo%" 2>/nul
+  IF ERRORLEVEL 1 (
+    "%GIT_CMD%" remote get-url "%desRemote%" > .tmp.gitFetchCache
+    FOR /F "delims=" %%a IN (.tmp.gitFetchCache) DO (
+      IF /I NOT "%%~a"=="%srcRepo%" (
+        ECHO Remote %desRemote% is point other repos of %%a
+        POPD && EXIT /b 1
+      )
     )
   )
-)
 
-echo %TIME%   Fetch NON-LFS
-"%GIT_CMD%" fetch --prune "%desRemote%" %fetchOpts%
-IF ERRORLEVEL 1 ECHO Cannot fetch %desRemote% && EXIT /b 1
+  echo %TIME%   Fetch NON-LFS
+  "%GIT_CMD%" fetch %fetchOpts%
+  IF ERRORLEVEL 1 ECHO Cannot fetch %desRemote% && POPD && EXIT /b 1
 
-REM Check if there are filter.lfs defined before do LFS fetch
-git config --get-regex ^^filter\.lfs 1>/nul
-IF NOT ERRORLEVEL 1 (
-  echo %TIME%   Fetch LFS
-  "%GIT_CMD%" lfs fetch "%desRemote%"
-  IF ERRORLEVEL 1 ECHO Cannot fetch %desRemote% lfs && EXIT /b 1
-)
-
-REM Look for .gitmodules and find all submodule url, and branch
-IF NOT "%branch%" == "" (
-  echo %TIME%   Check %desRemote%/%branch%:.gitmodules
-
-  REM Get list of submodule names
-  "%GIT_CMD%" show "%desRemote%/%branch%":.gitmodules ^
-    >.tmp.gitFetchCache.mod 2>/nul
-
-  "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --name-only ^
-    --get-regexp "^submodule\.(.+)\.url" >.tmp.gitFetchCache.name 2>/nul
-
-  REM Get list of submodule branch and url
-  ECHO.>.tmp.gitFetchCache.args
-  FOR /F "delims=" %%a IN (.tmp.gitFetchCache.name) DO (
-    SET name=%%a
-    SET name=!name:~0,-3!
-    ECHO %TIME%   Found !name!
-    ECHO !name:~10,-1!>> .tmp.gitFetchCache.args
-    "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --get "!name!branch" ^
-      >> .tmp.gitFetchCache.args
-    "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --get "!name!url" ^
-      >> .tmp.gitFetchCache.args
-    ECHO />> .tmp.gitFetchCache.args
-  )
-
-  REM Save data into a local variable
-  SET myArgs=
-  FOR /F "delims=" %%a IN (.tmp.gitFetchCache.args) DO SET myArgs=!myArgs!"%%a" 
-
-  REM Call gitFetchCache for all submodule recursively
-  SET modName=
-  SET modBranch=
-  SET modUrl=
-  FOR %%a IN (!myArgs!) DO (
-    IF %%a=="/" (
-      IF !modBranch!=="." SET modBranch="master"
-      IF !modBranch!==""  SET modBranch=!modName!
-      ECHO %TIME% Submodule !modName!
-      CALL :gitFetchCache !modBranch! !modUrl! . 
-      IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+  REM Check if there are filter.lfs defined before do LFS fetch
+  git config --get-regex ^^filter\.lfs 1>/nul
+  IF NOT ERRORLEVEL 1 (
+    echo %TIME%   Fetch LFS
+    IF "%branch%"=="" (
+      REM Handling the case branch is empty mean all branches
+      SET fetchLFSOpts=--recent "%desRemote%"
+    ) ELSE (
+      REM Handling the case of specific branch
+      REM Convert branch into a SHA1 commit value
+      FOR /F %%a IN ('git ls-remote "%desRemote%" "%branch%"') DO SET branch=%%a
+      SET fetchLFSOpts="%desRemote%" "!branch!"
     )
-    SET modName=!modBranch!
-    SET modBranch=!modUrl!
-    SET modUrl=%%a
+    "%GIT_CMD%" lfs fetch !fetchLFSOpts!
+    IF ERRORLEVEL 1 ECHO Cannot fetch %desRemote% lfs && POPD && EXIT /b 1
   )
-)
-POPD
-EXIT /b 0
+
+  REM Look for .gitmodules and find all submodule url, and branch
+  IF NOT "%branch%" == "" (
+    echo %TIME%   Check %desRemote%/%branch%:.gitmodules
+
+    REM Get list of submodule names
+    "%GIT_CMD%" show "%desRemote%/%branch%":.gitmodules ^
+      >.tmp.gitFetchCache.mod 2>/nul
+
+    "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --name-only ^
+      --get-regexp "^submodule\.(.+)\.url" >.tmp.gitFetchCache.name 2>/nul
+
+    REM Get list of submodule branch and url
+    ECHO.>.tmp.gitFetchCache.args
+    FOR /F "delims=" %%a IN (.tmp.gitFetchCache.name) DO (
+      SET name=%%a
+      SET name=!name:~0,-3!
+      ECHO %TIME%   Found !name!
+      ECHO !name:~10,-1!>> .tmp.gitFetchCache.args
+      "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --get "!name!branch" ^
+        >> .tmp.gitFetchCache.args
+      "%GIT_CMD%" config -f .tmp.gitFetchCache.mod --get "!name!url" ^
+        >> .tmp.gitFetchCache.args
+      ECHO />> .tmp.gitFetchCache.args
+    )
+
+    REM Save data into a local variable
+    SET myArgs=
+    FOR /F "delims=" %%a IN (.tmp.gitFetchCache.args) DO SET myArgs=!myArgs!"%%a" 
+
+    REM Call gitFetchCache for all submodule recursively
+    SET modName=
+    SET modBranch=
+    SET modUrl=
+    FOR %%a IN (!myArgs!) DO (
+      IF %%a=="/" (
+        IF !modBranch!=="." SET modBranch="master"
+        IF !modBranch!==""  SET modBranch=!modName!
+        ECHO %TIME% Submodule !modName!
+        CALL :gitFetchCache !modBranch! !modUrl! . 
+        IF ERRORLEVEL 1 POPD && EXIT /b %ERRORLEVEL%
+      )
+      SET modName=!modBranch!
+      SET modBranch=!modUrl!
+      SET modUrl=%%a
+    )
+  )
+  POPD
+
+  SET referenceOpt=--reference %1
+  SHIFT
+GOTO gitFetchCaches_Loop
 
 
 REM 
@@ -665,7 +681,7 @@ IF NOT "%test:~0,2%" == "\\" (
 REM Search of the share drive path already mapped. If found, return the
 REM drive letter
 FOR /F "tokens=1,2,*" %%a IN (
-  'net use ^| findstr /R /B /C:"OK  *.:" ^| findstr /C:"%test%"'
+  'NET USE ^| findstr /R /B /C:"OK  *.:" ^| findstr /C:"%test%"'
 ) DO (
   ECHO %%a %%b %%c
   IF "%%a"=="OK" (
@@ -676,7 +692,7 @@ FOR /F "tokens=1,2,*" %%a IN (
 
 REM Map the share drive with a unused drive letter, and return the drive
 REM letter
-SET netOpts=NET USE * "%test%"
+SET netOpts=NET USE * "%test%" /PERSISTENT:NO
 IF NOT "%~2" == "" SET netOpts=%netOpts% "/USER:%~2"
 IF NOT "%~3" == "" SET netOpts=%netOpts% %3
 ECHO Mapping %test% to a drive letter
