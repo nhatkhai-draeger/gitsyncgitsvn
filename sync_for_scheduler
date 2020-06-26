@@ -166,6 +166,11 @@ syncASvnFolder()
       "+++++++++ Sync $repoName ($logFile) failed." \
       'ln -sf "$repoLogDir/$logFile" "$errPath"'
 
+    if [[ "$logMaxAge" ]]; then
+      INFO "Cleanup log files older than $logMaxAge days..."
+      find "$repoLogDir" -type f -atime +$logMaxAge -exec rm -v {} \; 
+    fi
+
     INFO "+++++++++ Sync $repoName ($logFile) finished."
     exitClean 0
   ) 9>"$lock" &
@@ -194,6 +199,7 @@ setDefaultSettings()
 
   syncOps=()
   repos=()
+  logMaxAge=180
 }
 
 checkSettings()
