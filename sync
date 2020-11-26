@@ -128,6 +128,10 @@ while [ "$run_again" != "no" ]; do
   lfsNewSHA=`getSHA1 "$lfsBranch"`
 done
 
+INFO "****** Cleanup git report"
+git reflog expire
+git gc
+
 cleanUp
 } # End of main
 
@@ -137,6 +141,7 @@ setDefaultSettings()
   myDir="`dirname "$BASH_SOURCE"`"
   tmp="/tmp/`basename $BASH_SOURCE`_`date +%m%d%y_%H%M%S`_$BASHPID"
   emailFile=$tmp/emails
+  testdir="$HOME"
   local temp=`cygpath -m "$tmp"`
   if [ $? == 0 ]; then tmp=$temp; fi
   
@@ -267,8 +272,6 @@ cleanUp()
     INFO_EVAL "cat \"${emailFile}\""
   fi
 
-  #TODO: Unlock SVN folder
-  #TODO: Unlock gitBranch
   rm -rf "$tmp" 2> /dev/null
   cd "$curDir" 2> /dev/null
 }
@@ -344,14 +347,12 @@ init_fetchNewSvnFolder()
   git reset --hard
 
   INFO "****** Create new branch $lfsBranch"
-  # TODO: git branch command some time fail for the 1st run while operate
+  # NOTE: git branch command some time fail for the 1st run while operate
   # under mapped network drive
   retry 4 git branch "$lfsBranch" "$svnRemote"
   exitIfErr 1 "Cannot create $lfsBranch branch"
 
   if [[ ! -z "$lfsFilter" ]]; then
-    git lfs uninstall --local 2>/dev/null
-
     INFO "****** Rebase SVN commits with lfs settings"
     # This WORKAROUND help git lfs migrate work more effective
     git filter-branch --prune-empty -f --index-filter '
@@ -379,46 +380,42 @@ init_fetchNewSvnFolder()
   retry 4 git branch -f "$gitBranch" "$lfsBranch"
   exitIfErr 1 "Cannot set $gitBranch to $lfsBranch"
 
-  retry 4 git push -f -u $gitRemote "$lfsBranch"
-  exitIfErr 1 "Cannot push $lfsBranch into $gitRemote"
-
-  git push -f -u $gitRemote "$gitBranch"
-  exitIfErr 1 "Cannot push $gitBranch into $gitRemote"
+  retry 4 git push "$gitRemote" -u -f "$lfsBranch" "$gitBranch"
+  exitIfErr 1 "Cannot push $lfsBranch and/or $gitBranch into $gitRemote"
 
 }
 
+# @return error code non-zero if there no thing to sync
 syncSVNtoGIT()
 {
-  local tryLfsMerge="try/lfs/fromSVN"
-
-  INFO "###### Sync SVN commits to GIT ######"
   INFO "****** Fetch new commits from SVN to $svnRemote"
-  git checkout -f "$svnBranch"
-  exitIfErr 1 "Cannot switch to $svnBranch"
-  git reset --hard
-
-  #TODO: Lock SVN Folder
+  local svnOldSHA1=`getSHA1 "$svnRemote"`
   printf "$svnPwd\n" | \
     git svn fetch --username "$svnUser" \
     -A "$authorFile" 2> "$filterLog"
-  exitIfErr 1 "Cannot fetch commits from SVN! due to:" '
+  exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
     cat "'$filterLog'"'
   local svnNewSHA1=`getSHA1 "$svnRemote"`
   DBG "New SHA-1 for $svnRemote: $svnNewSHA1"
 
-  if [[ $svnSHA1 == $svnNewSHA1 ]]; then
+  if [[ $svnOldSHA1 == $svnNewSHA1 ]]; then
     INFO "Make sure $lfsBranch sync with the server"
-    retry 4 git push -f -u $gitRemote "$lfsBranch"
+    retry 4 git push "$gitRemote" -u -f "$lfsBranch"
     exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
 
     INFO "No new SVN commits to work on."
-    return
+    return 1
   fi
+
+  INFO "###### Sync SVN commits to GIT ######"
+  git checkout -f "$svnBranch"
+  exitIfErr 1 "Cannot checkout $svnBranch."
 
   # Rebase SVN changed into LFS (SVN changed = theirs)
   INFO "****** Put new SVN commits ${svnSHA1:0:8}..${svnNewSHA1:0:8} \
     onto $lfsBranch"
 
+  local tryLfsMerge="try/lfs/fromSVN"
   retry 4 git branch -f "$tryLfsMerge" "$svnRemote"
   exitIfErr 1 "Cannot create a temporary branch $tryLfsMerge"
 
@@ -526,7 +523,7 @@ syncSVNtoGIT()
   DBG "New SHA-1 for $lfsBranch: $lfsNewSHA1"
 
   INFO "*** Go back to $svnBranch after rebase"
-  git checkout -B "$svnBranch" "$svnRemote"
+  git checkout -f -B "$svnBranch" "$svnRemote"
   exitIfErr 1 "Cannot switch and move $svnBranch to $svnRemote"
   git reset --hard
 
@@ -536,36 +533,33 @@ syncSVNtoGIT()
     read -p "Check before push result into server...."
   fi
 
-  retry 4 git push -f -u $gitRemote "$lfsBranch"
+  retry 4 git push "$gitRemote" -u -f "$lfsBranch"
   exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
 }
 
-syncGITtoSVN()
+#
+# Adjust the difference between Git master branch and SVN
+#
+# @return error code non-zero if there is a problem
+# @return $run_again=yes if the error may resolve by rerun this function
+adjGitBranch()
 {
-  INFO "###### Sync GIT commits to SVN ######"
-  #       *--* <--gitBranch
-  #     /
-  # *--*--* <--lfsBranch
-  #    ^
-  #    +------ mergeBaseSHA1
-  #
-  local tryLfsMerge="try/lfs/merge"
-  local tryMerge="try/merge"
-
-  #TODO: Lock $gitBranch
+  INFO "###### Adj GIT on top of SVN ######"
+  git checkout -f "$svnBranch"
+  exitIfErr 1 "Cannot checkout $svnBranch."
 
   INFO "***** Update $gitBranch from git server"
-  git fetch $gitRemote "$gitBranch"
+  retry 4 git fetch $gitRemote "$gitBranch"
   exitIfErr 1 "Cannot pull $gitBranch from $gitRemote"
 
-  retry 4 git branch -f "$gitBranch" $gitRemote/"$gitBranch"
+  retry 4 git branch -f "$gitBranch" "$gitRemote/$gitBranch"
   exitIfErr 1 "Cannot link $gitBranch with $gitRemote"
 
   local gitSHA=`getSHA1 "$gitBranch"`
   local lfsSHA=`getSHA1 "$lfsBranch"`
   if [ $gitSHA == $lfsSHA ]; then 
     INFO "Nothing to be syn."
-    return;
+    return 1;
   fi
 
   local mergeBaseSHA1=`git merge-base "$gitBranch" "$lfsBranch"`
@@ -576,320 +570,347 @@ syncGITtoSVN()
   INFO "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
 
   # Extract list of committers' email
-  git log --pretty=format:%ce $lfsBranch..$gitSHA | sort -u >> "${emailFile}"
+  git log --pretty=format:%ce $mergeBaseSHA1.."$gitBranch" >> "${emailFile}"
+  git log --pretty=format:%ce $mergeBaseSHA1.."$lfsBranch" >> "${emailFile}"
 
-  local uncommittedCnt=0
+  if [ $lfsSHA == $mergeBaseSHA1 ]; then 
+    #      -- <--lfsBranch
+    #     /
+    # *--*--* <--gitBranch
+    return;
+  fi
+
   if [ $gitSHA == $mergeBaseSHA1 ]; then
-    #    +------gitBranch
-    #   \./
+    #      -- <--gitBranch
+    #     /
     # *--*--* <--lfsBranch
     INFO "****** Fast-forward $gitBranch to $lfsBranch"
     retry 4 git branch -f "$gitBranch" "$lfsBranch"
     exitIfErr 1 "Cannot fast forward $gitBranch to $lfsBranch"
-    
+
   else
     #       *--* <--gitBranch
     #     /
-    # *--*--?--? <--lfsBranch
-    #    ^
-    #    +------ mergeBaseSHA1
+    # *--*--*--* <--lfsBranch
+    #     \
+    #      ----- <--mergeBaseSHA1
     #
-    # Rebase git commit into svnBranch for dcommit
-    INFO "****** Put new git commits onto $svnRemote"
-    retry 4 git branch -f "$tryMerge" "$gitBranch"
-    exitIfErr 1 "Cannot create branch from $gitBranch"
+    if [ "$rebaseSync" != "yes" ]; then return; fi
 
-    git lfs uninstall --local 2>/dev/null
-
-    echo '
-      rm -f "'"$tmp\rebaseWorkAmend"'"
-      find . -iname ".gitmodules" -type f | while read ff; do
-        pushd "`dirname "$ff"`"
-        sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
-          | while read f; do
-            rm -rf "$f"
-            git add -v "$f"
-          done
-        echo >"'"$tmp\rebaseWorkAmend"'"
-        popd
-      done
-
-      find . -type f -iname ".git*" ! -iname ".gitmodules" \
-        | while read ff; do
-          git rm -f "$ff"
-          echo >"'"$tmp\rebaseWorkAmend"'"
-        done
-    ' > "$tmp/rebaseWork"
-
-    if [[ ! -z "$lfsFilter" ]]; then
-      echo '
-        git diff "'"$svnRemote"'" --cached \
-          --name-only --diff-filter=d > "'"$tmp\rebaseWorkDiff"'"
-        git diff "'"$svnRemote"'" HEAD~1 \
-          --name-only --diff-filter=d >> "'"$tmp\rebaseWorkDiff"'"
-        cat "'"$tmp\rebaseWorkDiff"'" \
-          | while read f; do
-          head -2 "$f" | sed -ne "s/^oid sha256:\([^ ]*\)/\1/p" \
-            | while read ref; do
-            ref="'"$tmp"'/lfs-$ref"
-            if [ ! -f "$ref" ]; then
-              cat "$f" | git lfs smudge > "$ref"
-              if [ $? != 0 ]; then 
-                rm -f "$ref"
-                >&2 printf "\n  Cannot remove LFS pointer for $f\n"
-                exit 3
-              fi
-              printf "\n  Remove LFS pointer on $f\n"
-            fi
-            cp -f "$ref" "$f"
-            git add "$f"
-            echo >"'"$tmp\rebaseWorkAmend"'"
-            break
-          done
-        done
-      ' >> "$tmp/rebaseWork"
-    fi
-      
-    echo '
-      if [[ -f "'"$tmp\rebaseWorkAmend"'" ]]; then
-        git commit --amend --allow-empty -C HEAD
-
-        # Code use to debug this process
-        if [ "'$prompt'" == "yes" ]; then
-          printf "Check before continue rebase...."
-          read
-        fi
-      fi
-    ' >> "$tmp/rebaseWork"
-
-    local oldHead='a'
-    local newHead=''
-    local maxWarnCnt=10
-    # WARNING: This rebase process may skip some commits
-    git rebase -s recursive -X theirs --exec "source \"$tmp/rebaseWork\""\
-      --onto "$svnRemote" $mergeBaseSHA1 "$tryMerge" 2> "$tmp/rebase"
-
-    # This loop try to resolve some of the conflict that can be simply 
-    # solve - such as:
-    # * Removed files from git, but detected modified from SVN
-    while [[ $? != 0 ]]; do
-      newHead=`git log REBASE_HEAD -1 --format=%H 2>/dev/null` \
-      || newHead=`cat .git/rebase-merge/stopped-sha 2>/dev/null` \
-      || newHead=`cat .git/rebase-merge/orig-head` \
-
-      INFO "**** Try to resolve conflict automatically at $newHead"
-
-      if [[ $newHead == $oldHead ]]; then 
-        if [[ $maxWarnCnt -ne 0 ]]; then
-          WARN "Resolve same SHA-1 again!"
-          ((maxWarnCnt=maxWarnCnt-1))
-        else
-          ERROR "Cannot rebase $gitBranch branch onto of $svnRemote!"
-          if [ "$prompt" == "yes" ]; then 
-            read -p "Check why rebase is failed..."
-          fi 
-          git lfs install --local
-          git rebase --abort
-          myExit 1
-        fi
-      fi
-
-      git status --porcelain > "$tmp/gitStatus"
-      cat "$tmp/gitStatus"
-
-      rm -f "$tmp\rebaseWorkAmend"
-      # Conflict "*D" - " Deleted by theirs (master)
-      # * A file added from SVN but remove by master
-      sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do 
-          rm -f "$f" 
-          git add -v "$f" 
-          echo >"$tmp\rebaseWorkAmend"
-        done
-
-      # Handle some cases where the item were submodule and had been
-      # excluded or deleted from SVN branches
-      sed -ne "s/^D. \(.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do 
-          # Obtain the item type
-          local type=`git ls-tree $newHead -- "$f" \
-            | sed -En "s/[^ ]+ ([^ ]+).*/\1/p"`
-
-          if [[ "$type" == "commit" ]]; then
-          # commit type usually is a submodule folder, so we discard it
-            rm -f "$f" 
-          else
-            git checkout $newHead -- "$f"
-          fi
-          git add -v "$f" 
-          echo >"$tmp\rebaseWorkAmend"
-        done
-
-      # Take any other changes from master
-      sed -ne "s/^[^D][^D] \(.*\)$/\1/p" "$tmp/gitStatus" \
-        | while read f; do 
-        git checkout $newHead -- "$f"
-        git add -v "$f" 
-        echo >"$tmp\rebaseWorkAmend"
-      done
-
-      if [[ -f "$tmp\rebaseWorkAmend" ]]; then
-        git commit -C $newHead      
-      fi
-
-      # Code use to debug this process
-      if [ "$prompt" == "yes" ]; then
-        read -p "Check...."
-      fi
-
-      oldHead=$newHead
-      git rebase --continue 2>> "$tmp/rebase"
-
-    done;
+    INFO "****** Rebase $gitBranch onto $lfsBranch"
+    git rebase ${mergeOpt} \
+      --onto "$lfsBranch" $mergeBaseSHA1 "$gitBranch"
+    exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
+      git rebase --abort 2>/dev/null'
 
     git filter-branch --env-filter '
       export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
       export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
       export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
-    ' --index-filter '
-      git ls-files --cached --full-name | grep -e "^\(.*/\)\?.gitmodules$" \
-        | while read f; do
-          git rm --cached -f "$f"
-        done
-    ' --prune-empty -f -- "$svnRemote".."$tryMerge"
+    ' -f -- "$lfsBranch".."$gitBranch"
     exitIf "$? != 0 && $? != 2" $? \
-      "Cannot readjust committer info onto $tryMerge!" '
-      git lfs install --local'
+      "Cannot readjust committer info onto $gitBranch!"
+  fi
 
-    git lfs install --local
+  if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_REBASE ]]; then 
+    source $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_REBASE
+  fi
+  retry 4 git push "$gitRemote" -u --force-with-lease "$gitBranch"
+  if [[ $? != 0 ]]; then 
+    WARN "Cannot push $gitBranch. It Ok, if it had changed on remote."
+    WARN "Going to try again..."
+    run_again=yes
+    return 1
+  fi
+}
 
-    if [ "$prompt" == "yes" ]; then
-      read -p "Check $tryMerge before run dcommit, Press Enter...."
-    fi
+syncGITtoSVN()
+{
+  adjGitBranch || return
 
-    INFO "****** Do DCommit to push git commits into SVN server"
-    printf "$svnPwd\n" | \
-      git svn dcommit --username "$svnUser" \
-      --use-log-author --add-author-from \
-      "${dcommitOpt[@]}" $tryMerge 2> "$filterLog"
-    exitIfErr 1 "dcommit failed with following message:" '
-      cat "'$filterLog'"
-      git reset --hard 2>/dev/null'
+  INFO "###### Sync GIT commits to SVN ######"
+  #      -- <--lfsBranch
+  #     /
+  # *--*--* <--gitBranch
+  INFO "****** Put new git commits onto $svnRemote"
+  local tryMerge="try/merge"
+  retry 4 git branch -f "$tryMerge" "$gitBranch"
+  exitIfErr 1 "Cannot create branch from $gitBranch"
 
-    #TODO: Unlock SVN Folder
-    git reset --hard
+  echo '
+    rm -f "'"$tmp\rebaseWorkAmend"'"
+    find . -iname ".gitmodules" -type f | while read ff; do
+      pushd "`dirname "$ff"`"
+      sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
+        | while read f; do
+          rm -rf "$f"
+          git add -v "$f"
+        done
+      echo >"'"$tmp\rebaseWorkAmend"'"
+      popd
+    done
 
-    INFO "****** Figure what were committed into SVN and update the states"
-    local newCommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
-    local  committedCnt=`git rev-list --count "$svnBranch".."$svnRemote"`
-    ((uncommittedCnt = newCommitCnt - committedCnt ))
-    INFO "There is $committedCnt/$newCommitCnt committed into SVN server"
+    find . -type f -iname ".git*" ! -iname ".gitmodules" \
+      | while read ff; do
+        git rm -f "$ff"
+        echo >"'"$tmp\rebaseWorkAmend"'"
+      done
+  ' > "$tmp/rebaseWork"
+
+  if [[ ! -z "$lfsFilter" ]]; then
+    git lfs uninstall --local 2>/dev/null
+    echo '
+      git diff "'"$svnRemote"'" --cached \
+        --name-only --diff-filter=d > "'"$tmp\rebaseWorkDiff"'"
+      git diff "'"$svnRemote"'" HEAD~1 \
+        --name-only --diff-filter=d >> "'"$tmp\rebaseWorkDiff"'"
+      cat "'"$tmp\rebaseWorkDiff"'" \
+        | while read f; do
+        head -2 "$f" | sed -ne "s/^oid sha256:\([^ ]*\)/\1/p" \
+          | while read ref; do
+          ref="'"$tmp"'/lfs-$ref"
+          if [ ! -f "$ref" ]; then
+            cat "$f" | git lfs smudge > "$ref"
+            if [ $? != 0 ]; then 
+              rm -f "$ref"
+              >&2 printf "\n  Cannot remove LFS pointer for $f\n"
+              exit 3
+            fi
+            printf "\n  Remove LFS pointer on $f\n"
+          fi
+          cp -f "$ref" "$f"
+          git add "$f"
+          echo >"'"$tmp\rebaseWorkAmend"'"
+          break
+        done
+      done
+    ' >> "$tmp/rebaseWork"
+  fi
     
-    if [ "$prompt" == "yes" ]; then
-      read -p "Check $svnRemote before update branches.Press Enter...."
-    fi
+  echo '
+    if [[ -f "'"$tmp\rebaseWorkAmend"'" ]]; then
+      git commit --amend --allow-empty -C HEAD
 
-    # TODO REMOVE THIS TEST BLOCK
-    # This block to help debugging the dcommit issue if for committedCnt
-    # received value of 0 in some observed cases
-    # {
-    printf "$svnPwd\n" | \
-      git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
-    exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
-      cat "'$filterLog'"'
-    local newCommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
-    local  committedCnt=`git rev-list --count "$svnBranch".."$svnRemote"`
-    ((uncommittedCnt = newCommitCnt - committedCnt ))
-    INFO "#2 There is $committedCnt/$newCommitCnt committed into SVN server"
-
-    if [ "$prompt" == "yes" ]; then
-      read -p "Check $svnRemote before update branches.Press Enter...."
-    fi 
-    # }
-
-    INFO "****** Try to update $lfsBranch and $gitBranch after dcommits"
-
-    # Re-estimate commits that correct committed into SVN on gitBranch
-    retry 4 git branch -f "$tryLfsMerge" "$gitBranch"\~$uncommittedCnt
-    exitIfErr 1 "Cannot mark commits on $gitBranch that committed into SVN"
-
-    if [[ $uncommittedCnt != 0 ]]; then
-      if [[ $committedCnt != 0 ]]; then
-        # What IFF dcommit introducing new commits from SVN? How to migrate
-        # these commits into lfsBranch before update lfsBranch.  Currently
-        # it is kind of work because we run syncSVNtoGIT before this, so
-        # most likely this should introduce any more now SVN commits. 
-        WARN "Hope this dcommit did not pull in new commits from SVN" 
+      # Code use to debug this process
+      if [ "'$prompt'" == "yes" ]; then
+        printf "Check before continue rebase...."
+        read
       fi
+    fi
+  ' >> "$tmp/rebaseWork"
 
-      local newGitCommitCnt=`git rev-list --count $mergeBaseSHA1.."$gitBranch"`
-      if [[ $newGitCommitCnt != $newCommitCnt ]]; then
-        # What IFF earlier rebase prune-empty commits, and number of
-        # uncommittedCnt is not zero. It is impossible to figure out which
-        # commits on master are committed into SVN.
-        ERROR "UNABLE TO HANDLED dcommit when some commits on $gitBranch was pruned"
+  local oldHead='a'
+  local newHead=''
+  local maxWarnCnt=10
+  # WARNING: This rebase process may skip some commits
+  git rebase -s recursive -X theirs --exec "source \"$tmp/rebaseWork\""\
+    --onto "$svnRemote" "$lfsBranch" "$tryMerge" 2> "$tmp/rebase"
+
+  # This loop try to resolve some of the conflict that can be simply 
+  # solve - such as:
+  # * Removed files from git, but detected modified from SVN
+  while [[ $? != 0 ]]; do
+    newHead=`git log REBASE_HEAD -1 --format=%H 2>/dev/null` \
+    || newHead=`cat .git/rebase-merge/stopped-sha 2>/dev/null` \
+    || newHead=`cat .git/rebase-merge/orig-head` \
+
+    INFO "**** Try to resolve conflict automatically at $newHead"
+
+    if [[ $newHead == $oldHead ]]; then 
+      if [[ $maxWarnCnt -ne 0 ]]; then
+        DBG_EVAL 'cat "$tmp/rebase"'
+        WARN "Resolve same SHA-1 again!"
+        ((maxWarnCnt=maxWarnCnt-1))
+      else
+        ERROR "Cannot rebase $gitBranch branch onto of $svnRemote!"
+        if [ "$prompt" == "yes" ]; then 
+          read -p "Check why rebase is failed..."
+        fi 
+        [[ "$lfsFilter" ]] && git lfs install --local
+        git rebase --abort
         myExit 1
       fi
     fi
 
-    git checkout -f "$lfsBranch"
-    exitIfErr 1 "Cannot checkout $lfsBranch!"
+    git status --porcelain > "$tmp/gitStatus"
+    cat "$tmp/gitStatus"
 
-    if [ "$prompt" == "yes" ]; then
-      read -p "Check before merge $lfsBranch, Press Enter...."
+    rm -f "$tmp\rebaseWorkAmend"
+    # Conflict "*D" - " Deleted by theirs (master)
+    # * A file added from SVN but remove by master
+    sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
+      | while read f; do 
+        rm -f "$f" 
+        git add -v "$f" 
+        echo >"$tmp\rebaseWorkAmend"
+      done
+
+    # Handle some cases where the item were submodule and had been
+    # excluded or deleted from SVN branches
+    sed -ne "s/^D. \(.*\)$/\1/p" "$tmp/gitStatus" \
+      | while read f; do 
+        # Obtain the item type
+        local type=`git ls-tree $newHead -- "$f" \
+          | sed -En "s/[^ ]+ ([^ ]+).*/\1/p"`
+
+        if [[ "$type" == "commit" ]]; then
+        # commit type usually is a submodule folder, so we discard it
+          rm -f "$f" 
+        else
+          git checkout $newHead -- "$f"
+        fi
+        git add -v "$f" 
+        echo >"$tmp\rebaseWorkAmend"
+      done
+
+    # Take any other changes from master
+    sed -ne "s/^[^D][^D] \(.*\)$/\1/p" "$tmp/gitStatus" \
+      | while read f; do 
+      git checkout $newHead -- "$f"
+      git add -v "$f" 
+      echo >"$tmp\rebaseWorkAmend"
+    done
+
+    if [[ -f "$tmp\rebaseWorkAmend" ]]; then
+      git commit -C $newHead      
     fi
 
+    # Code use to debug this process
+    if [ "$prompt" == "yes" ]; then
+      read -p "Check...."
+    fi
+
+    oldHead=$newHead
+    git rebase --continue 2>> "$tmp/rebase"
+
+  done;
+
+  git filter-branch --env-filter '
+    export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
+    export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
+    export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
+  ' --index-filter '
+    git ls-files --cached --full-name | grep -e "^\(.*/\)\?.gitmodules$" \
+      | while read f; do
+        git rm --cached -f "$f"
+      done
+  ' --prune-empty -f -- "$svnRemote".."$tryMerge"
+  exitIf "$? != 0 && $? != 2" $? \
+    "Cannot readjust committer info onto $tryMerge!" '
+    [[ "$lfsFilter" ]] && git lfs install --local'
+
+  [[ "$lfsFilter" ]] && git lfs install --local
+
+  if [ "$prompt" == "yes" ]; then
+    read -p "Check $tryMerge before run dcommit, Press Enter...."
+  fi
+
+  if [[ -f $testdir/.SYNC_TEST_SVN_CHANGE ]]; then 
+    source $testdir/.SYNC_TEST_SVN_CHANGE
+  fi
+  INFO "**** Check make sure no new SVN commit ***"
+  syncSVNtoGIT && run_again=true && return
+
+  INFO "****** Do DCommit to push git commits into SVN server"
+  if [[ -f $testdir/.SYNC_TEST_SVN_CHANGE_WHILE_DCOMMIT ]]; then 
+    source $testdir/.SYNC_TEST_SVN_CHANGE_WHILE_DCOMMIT
+  fi
+  local newCommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
+  printf "$svnPwd\n" | \
+    git svn dcommit --username "$svnUser" \
+    --use-log-author --add-author-from \
+    "${dcommitOpt[@]}" $tryMerge 2> "$filterLog"
+  exitIfErr 1 "dcommit failed with following message:" '
+    cat "'$filterLog'"
+    git reset --hard 2>/dev/null'
+
+  INFO "****** Figure what were committed into SVN and update the states"
+  local  committedCnt=`git rev-list --count "$svnBranch".."$svnRemote"`
+  local uncommittedCnt=0
+  ((uncommittedCnt = newCommitCnt - committedCnt ))
+  INFO "There is $committedCnt/$newCommitCnt committed into SVN server"
+  
+  if [ "$prompt" == "yes" ]; then
+    read -p "Check $svnRemote before update branches.Press Enter...."
+  fi
+
+  INFO "****** Try to update $lfsBranch and $gitBranch after dcommits"
+
+  if [[ $uncommittedCnt != 0 ]]; then
+    if [[ $committedCnt != 0 ]]; then
+      # What IFF dcommit introducing new commits from SVN? How to migrate
+      # these commits into lfsBranch before update lfsBranch.  It rarely
+      # occurred because we run syncSVNtoGIT before this. 
+      ERROR "UNABLE TO HANDLE dcommit that mix with new SVN commits" 
+      myExit 1
+    fi
+
+    local newGitCommitCnt=`git rev-list --count "$lfsBranch".."$gitBranch"`
+    if [[ $newGitCommitCnt != $newCommitCnt ]]; then
+      # What IFF earlier rebase prune-empty commits, and number of
+      # uncommittedCnt is not zero. It is impossible to figure out which
+      # commits on master are committed into SVN.
+      ERROR "UNABLE TO HANDLED dcommit with some pruned from $gitBranch"
+      myExit 1
+    fi
+
+    run_again=yes
+  fi
+
+  # Re-estimate commits that correct committed into SVN on gitBranch
+  local tryLfsMerge="try/lfs/merge"
+  retry 4 git branch -f "$tryLfsMerge" "$gitBranch"\~$uncommittedCnt
+  exitIfErr 1 "Cannot mark commits on $gitBranch that committed into SVN"
+
+  if [ "$prompt" == "yes" ]; then
+    git log --oneline --graph --simplify-by-decoration \
+      "$gitBranch" "$lfsBranch" "$svnBranch"
+    read -p "Check before merge $lfsBranch, Press Enter...."
+  fi
+
+  git checkout -f "$tryLfsMerge"
+  exitIfErr 1 "Cannot checkout $tryLfsMerge"
+
+  if [ "$rebaseSync" != "yes" ]; then 
+    INFO "***** Merge $gitBranch and $lfsBranch"
     git merge --ff ${mergeOpt} \
-      -m "Auto merge $lfsBranch to $gitBranch" "$tryLfsMerge"
+      -m "Auto merge $lfsBranch to $gitBranch" "$lfsBranch"
     exitIfErr 1 "Cannot merge $lfsBranch to $gitBranch!" '
       git merge --abort 2>/dev/null'
 
-    if [ "$rebaseSync" == "yes" ]; then
-      INFO "****** Rebase $gitBranch onto $lfsBranch"
-      git rebase ${mergeOpt} \
-        --onto "$lfsBranch" $mergeBaseSHA1 "$gitBranch"
-      exitIfErr 1 "Cannot rebase $gitBranch onto $lfsBranch!" '
-        git rebase --abort 2>/dev/null'
-
-      git filter-branch --env-filter '
-        export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME
-        export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
-        export GIT_COMMITTER_DATE=$GIT_AUTHOR_DATE
-      ' -f -- "$lfsBranch".."$gitBranch"
-      exitIf "$? != 0 && $? != 2" $? \
-        "Cannot readjust committer info onto $gitBranch!"
-    fi
-
-    retry 4 git branch -f "$svnBranch" "$svnRemote"
-
-    if [ "$prompt" == "yes" ]; then
-      read -p "Check before push to remote, Press Enter...."
-    fi
-
-    retry 4 git push -f -u $gitRemote "$lfsBranch"
-    exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
+    retry 4 git branch -f "$gitBranch" "$tryLfsMerge"
+    exitIfErr 1 "Cannot unify $gitBranch and $lfsBranch branches"
   fi
 
-  git push -f -u $gitRemote "$gitBranch"
-  exitIfErr 1 "Cannot push $gitBranch into $gitRemote"
-  #TODO: Unlock $gitBranch
+  retry 4 git branch -f "$lfsBranch" "$tryLfsMerge"
+  exitIfErr 1 "Cannot fast-forward $lfsBranch!"
+
+  retry 4 git branch -f "$svnBranch" "$svnRemote"
+  exitIfErr 1 "Cannot fast-forward $svnBranch!"
 
   if [ "$prompt" == "yes" ]; then
-    read -p "Check $gitBranch, $lfsBranch, $svnBranch. Press Enter...."
+    git log --oneline --graph --simplify-by-decoration \
+      "$gitBranch" "$lfsBranch" "$svnBranch"
+    read -p "Check $gitBranch, $lfsBranch, $svnBranch before push. Press Enter...."
+  fi
+
+  if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_MERGE ]]; then 
+    source $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_MERGE
+  fi
+  retry 4 git push $gitRemote -u -f "$lfsBranch"
+  exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
+
+  retry 4 git push $gitRemote -u "$gitBranch"
+  if [[ $? != 0 ]]; then
+    WARN "Cannot push $gitBranch. It Ok if it had changed on remote."
+    WARN "Going to try again..."
+    run_again=yes
   fi
 
   INFO "****** Remove temporary branches"
   git checkout -f "$svnBranch"
   git branch -D "${tryLfsMerge}" 2> /dev/null
   git branch -D "${tryMerge}"   2> /dev/null
-
-  INFO "****** Cleanup git report"
-  git reflog expire
-  git gc
-
-  if [ $uncommittedCnt != 0 ]; then
-    run_again=yes
-  fi
 }
 
 get_gitattributes()
