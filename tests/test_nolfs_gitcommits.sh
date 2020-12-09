@@ -30,4 +30,8 @@ Assert $a -eq 0 "svn and git should be matched"
 
 diff . ../../git_test/proj1_local -x .git && a=0 || a=$?
 Assert $a -eq 0 "git local and git should be matched"
+
+WARN "MANUAL CHECK: git log below should show 2nd commit branches out to"
+WARN "  svn-proj1 and master"
+git log --all --oneline --graph --decorate=short --author-date-order
 popd
