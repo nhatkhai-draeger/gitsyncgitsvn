@@ -13,6 +13,7 @@
 @REM   runBash    [BASH_COMMAND_STR...]
 @REM
 @REM   getCygPkg  SETUP_EXE_URL [CYGWIN_PACKAGE...]
+@REM
 @REM   runMsiUrl  [MSI_OPTION...] MSI_FILE_URL
 @REM   runUrl     EXECUTABLE_FILE_URL [OPTION...]
 @REM   runOnce    COMMANS [OPTIONS...]
@@ -24,10 +25,15 @@
 @REM
 @REM   getLocalPath   SHARE_FOLDER_PATH
 @REM 
+@REM   runThread     COMMAND [COMMAND_ARGUMENTS...]
+@REM   joinThread
+@REM 
 @REM ENVIRONMENT VARIABLES (OPTIONAL):
 @REM   cacheL1     point to local folder for cache downloaded files.
 @REM               Otherwise, current directory will be use.
 @REM   cacheL2     point to share cache folder for downloaded files
+@REM   cacheL3     Point to Artifacts cache folder for downloaded files.
+@REM   cacheL3_key For write access token to Artifacts
 @REM
 @REM   ci_proxy    for http/https proxy server if http_proxy not specified
 @REM   http_proxy  for http/https proxy server (doCurl, getCygPkg)
@@ -61,8 +67,9 @@ IF "%~1" == "-h"     GOTO HELP
 IF "%~1" == "--help" GOTO HELP
 
 IF "%http_proxy%%ci_proxy%"=="" ECHO WARN: %%http_proxy%% or %%ci_proxy%% may need
-IF "%cacheL2%"             =="" ECHO WARN: %%cacheL2%% may need
+IF "%cacheL2%%cacheL3%"    =="" ECHO WARN: %%cacheL2%% or %%cacheL3%% may need
  
+SET THIS=%0
 CALL :%*
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 EXIT /b 0
@@ -88,6 +95,9 @@ REM @param %cacheL1%     (optional) point to local folder for cache
 REM         downloaded files. Otherwise, current directory will be use.
 REM @param %cacheL2%     (optional) point to share cache folder for
 REM         downloaded files
+REM @param %cacheL3%     (optional) Point to Artifacts cache folder for
+REM         downloaded files.
+REM @param %cacheL3_key% (optional) For write access token to Artifacts
 REM
 REM @param %http_proxy%  (optional) for http/https proxy server for 
 REM @param %https_proxy% (optional) for https proxy server for
@@ -133,9 +143,14 @@ REM @param %cacheL1%     (optional) point to local folder for cache
 REM         downloaded files. Otherwise, current directory will be use.
 REM @param %cacheL2%     (optional) point to share folder for cache
 REM         downloaded files
+REM @param %cacheL3%     (optional) Point to Artifacts cache folder for
+REM         downloaded files.
+REM @param %cacheL3_key% (optional) For write access token to Artifacts
+REM
 REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for proxy server for http*
 REM @param %https_proxy% (optional) for proxy server for https
+REM @param %curl_opts%   (optional) use to pass over to curl command 
 REM @param %CURL%        (optional) specify full path of curl command
 REM @param %curl_cab%    (optional) for curl executable package in case
 REM         native curl command not available
@@ -162,7 +177,7 @@ IF "%url%"=="" EXIT /b 1
 REM Try to download and run installer
 CALL :download "%url%"
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
-FOR /F %%a IN (.ret) DO SET msiSetup=%%~a
+FOR /F "delims=" %%a IN (.ret) DO SET msiSetup=%%~a
 
 SET cmd=msiexec /quiet /passive %opts%
 IF "%~2"=="" SET cmd=%cmd% /i
@@ -184,9 +199,14 @@ REM @param %cacheL1%     (optional) point to local folder for cache
 REM         downloaded files. Otherwise, current directory will be use.
 REM @param %cacheL2%     (optional) point to share folder for cache
 REM         downloaded files
+REM @param %cacheL3%     (optional) Point to Artifacts cache folder for
+REM         downloaded files.
+REM @param %cacheL3_key% (optional) For write access token to Artifacts
+REM
 REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for proxy server for http*
 REM @param %https_proxy% (optional) for proxy server for https
+REM @param %curl_opts%   (optional) use to pass over to curl command 
 REM @param %CURL%        (optional) specify full path of curl command
 REM @param %curl_cab%    (optional) for curl executable package in case
 REM         native curl command not available
@@ -208,10 +228,17 @@ IF "%url%"=="" EXIT /b 1
 REM Try to download and run installer
 CALL :download "%url%"
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
-FOR /F %%a IN (.ret) DO SET cmd=%%~sa
-ECHO %cmd% %opts%
-START /WAIT %cmd% %opts%
-IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+FOR /F "delims=" %%a IN (.ret) DO SET "cmdPath=%%~dpsa" ^
+                               && SET "cmdFile=%%~nxa" ^
+                               && SET "cmdLong=%%~dfa" ^
+                               && SET "cmdExt=%%~xa"
+ECHO %cmdLong% %opts%
+PUSHD "%cmdPath%" || EXIT /b 1
+IF "%cmdExt%"=="" SET cmdExt=.
+SET PATHEXT=%PATHEXT%;%cmdExt%
+START /WAIT "" "%cmdFile%" %opts%
+IF ERRORLEVEL 1 POPD && EXIT /b %ERRORLEVEL%
+POPD
 EXIT /b 0
 
 
@@ -267,10 +294,14 @@ REM @param %cacheL1%      (optional) point to local folder for cache
 REM         downloaded files. Otherwise, current directory will be use.
 REM @param %cacheL2%      (optional) point to share cache folder for
 REM         downloaded files
+REM @param %cacheL3%     (optional) Point to Artifacts cache folder for
+REM         downloaded files.
+REM @param %cacheL3_key% (optional) For write access token to Artifacts
 REM
 REM @param %ci_proxy%     (optional) use when http_proxy not specified
 REM @param %http_proxy%   (optional) for http proxy server for 
 REM @param %https_proxy%  (optional) for https proxy server for
+REM @param %curl_opts%   (optional) use to pass over to curl command 
 REM @param %CURL%         (optional) specify full path of curl command
 REM @param %curl_cab%     (optional) location of curl executable package in
 REM         case curl command not available
@@ -327,7 +358,7 @@ IF "%url%" == "" (
 REM Try to download and run installer
 CALL :download "%url%"
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
-FOR /F %%a IN (.ret) DO SET cygSetup=%%a
+FOR /F "delims=" %%a IN (.ret) DO SET cygSetup=%%~dpsa\%%~nxa
 SET opts=--quiet-mode --no-desktop --no-shortcuts --no-startmenu --only-site
 
 IF     "%http_proxy%" == "" SET http_proxy=%ci_proxy%
@@ -365,8 +396,9 @@ REM
 REM FUNCTION download: Try to download a file from specified url into
 REM %cacheL1% or current directory
 REM
-REM First it will check if the file exist in %cacheL1, then %cacheL2%, then
-REM try to use curl command to download the specified URL file
+REM First it will check if the file exist in %cacheL1%, then %cacheL2%,
+REM then %cacheL3%, and then try to use curl command to download the
+REM specified URL file
 REM
 REM @param %1 specified URL
 REM
@@ -374,9 +406,14 @@ REM @param %cacheL1%     (optional) point to local folder for cache
 REM         downloaded file. Otherwise, current directory will be use
 REM @param %cacheL2%     (optional) point to share folder for cache
 REM         downloaded files.
+REM @param %cacheL3%     (optional) Point to Artifacts cache folder for
+REM         downloaded files.
+REM @param %cacheL3_key% (optional) For write access token to Artifacts
+REM
 REM @param %ci_proxy%    (optional) use when http_proxy not specified
 REM @param %http_proxy%  (optional) for http proxy server for 
 REM @param %https_proxy% (optional) for https proxy server for
+REM @param %curl_opts%   (optional) use to pass over to curl command 
 REM @param %CURL%        (optional) specify full path of curl command
 REM @param %curl_cab%    (optional) location of curl executable package in
 REM         case curl command not available
@@ -387,46 +424,88 @@ REM
 REM @test CALL :download "https://cygwin.com/setup-x86.exe"
 REM
 :download
-SETLOCAL EnableExtensions
-IF "%cacheL1%" == "" FOR /F %%a IN ('cd') DO SET cacheL1=%%a
-
-REM Figure out the path 
-ECHO %~1> .ret
-:download_RemoveCols
-  FOR /F "tokens=1,* delims=:" %%a IN (.ret) DO (
-    ECHO %%a%%b> .ret
-    SET tmp=%%b
+SETLOCAL
+REM Normalize URL to a valid file path 
+SET "outFile=%~1"
+SET "outFile=%outFile:/=\%"
+SET "outFile=%outFile::=%"
+SET "outFile=%outFile:+=+0%"
+SET "outFile=%outFile:?=\+1%"
+SET "outFile=%outFile:>=+1%"
+SET "outFile=%outFile:<=+2%"
+SET "outFile=%outFile:|=+3%"
+:_download_remove_star
+FOR /F "tokens=1* delims=*" %%a IN ("%outFile%") DO (
+  IF NOT "%%b"=="" SET outFile=%%a+4%%b
+  IF NOT "%%b"=="" GOTO :_download_remove_star
   )
-  IF NOT "%tmp%" == "" GOTO download_RemoveCols
+SET "outFile=%outFile:!=+5%"
+SET "outFile=%outFile:^^=+6%"
+SET "outFile=%outFile:&=+7%"
 
 REM Check if the file already exist locally, then avoid download
-FOR /F %%a IN (.ret) DO SET outFile=%%a
+IF "%cacheL1%" == "" FOR /F %%a IN ('cd') DO SET cacheL1=%%~sa\.cache
 FOR %%a IN ("%cacheL1%\%outFile%") DO (
   MKDIR "%%~dpa" 2>/nul
   SET l1file=%%~dpnxa
 )
-echo %l1file%> .ret
+echo "%l1file%"> .ret
 IF EXIST "%l1file%" EXIT /b 0
 
 REM Try to take file from cache L2
+SET l2file=
 IF "%cacheL2%"=="" GOTO download_SkipL2
   CALL :getLocalPath "%cacheL2%" "%cacheL2_user%" "%cacheL2_pw%"
-  FOR /F %%a IN (.ret) DO SET cacheL2=%%~a
+  FOR /F "delims=" %%a IN (.ret) DO SET cacheL2=%%~a
 
   FOR %%a IN ("%cacheL2%\%outFile%") DO (
     MKDIR "%%~dpa" 2>/nul
     SET l2file=%%~dpnxa
+    SET filename=%%~nxa
   )
+  IF NOT EXIST "%l2file%" GOTO download_SkipL2
   
-  echo %l1file%> .ret
-  IF EXIST "%l2file%" COPY /Y "%l2file%" "%l1file%" && EXIT /b 0
+  echo "%l1file%"> .ret
+  COPY /Y "%l2file%" "%l1file%" >nul 2>&1 ^
+    && ECHO "Copy %filename% from %cacheL2% to %l1file%" ^
+    && EXIT /b 0
 :download_SkipL2
 
-REM Try to download the file
-CALL :doCurl %1 -o "%l1file%" --insecure --location
-IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+REM Try to take file from cache L3
+IF "%cacheL3%"=="" GOTO download_SkipL3
+  SET l3file=%cacheL3%/%outFile%
+  REM Check is the file exist on server
+  CALL :doCurl "%l3file%" -o nul --silent --fail -r 0-0 -m 2 --insecure -x ""
+  IF ERRORLEVEL 1 GOTO :download_SkipL3
 
-IF NOT "%cacheL2%" == "" COPY /Y "%l1file%" "%l2file%" 
+  REM Try to download from cacheL3
+  CALL :doCurl "%l3file%" -o "%l1file%.dl" --fail --insecure %curl_opts%
+  IF ERRORLEVEL 1 GOTO :download_SkipL3
+  MOVE /Y "%l1file%.dl" "%l1file%" || EXIT /b 1
+  ECHO Download %filename% from %cacheL3% to %l1file% 
+
+  REM Update cache L2
+  IF NOT "%l2file%" == "" COPY ^
+    /Y "%l1file%" "%l2file%" >nul 2>&1 ^
+    && ECHO "Save %filename% into %l2file%
+  echo "%l1file%"> .ret
+  EXIT /b 0
+:download_SkipL3
+
+REM Try to download the file
+CALL :doCurl %1 -o "%l1file%.dl" --fail --insecure --location %curl_opts%
+IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+MOVE /Y "%l1file%.dl" "%l1file%" || EXIT /b 1
+ECHO Download %filename% to %l1file%
+
+REM Update cache L2 & L3
+IF NOT "%l2file%" == "" COPY /Y "%l1file%" "%l2file%" >nul 2>&1 ^
+  && ECHO Save %filename% into %l2file%
+IF NOT "%l3file%" == "" CALL :runThread %THIS% ^
+  doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" -o nul --insecure -x "" ^
+  && ECHO Save %filename% into %l3file%
+
+echo "%l1file%"> .ret
 EXIT /b 0
 
 
@@ -459,7 +538,7 @@ REM
 SETLOCAL EnableDelayedExpansion
 IF "%CURL%"=="" FOR %%a IN (curl.exe) DO SET CURL=%%~$PATH:a
 IF "%CURL%"=="" IF NOT "%curl_cab%"=="" (
-  IF "%cacheL1%" == "" FOR /F %%a IN ('cd') DO SET cacheL1=%%a
+  IF "%cacheL1%" == "" FOR /F %%a IN ('cd') DO SET cacheL1=%%~sa\.cache
 
   SET CURL=!cacheL1!/curl/I386/curl.exe
   IF NOT EXIST "!CURL!" (
@@ -467,7 +546,7 @@ IF "%CURL%"=="" IF NOT "%curl_cab%"=="" (
     PUSHD "!cacheL1!"
     IF ERRORLEVEL 1 EXIT /b !ERRORLEVEL!
 
-    COPY /Y "!curl_cab!" "curl.cab"
+    COPY /Y "!curl_cab!" "curl.cab" >nul 2>&1
     IF ERRORLEVEL 1 POPD && EXIT /b !ERRORLEVEL!
 
     IF NOT EXIST curl MKDIR curl
@@ -496,8 +575,9 @@ IF NOT "%https_proxy%"=="" (
 )
 IF NOT "%use_proxy%" == "" SET use_proxy=-x "%use_proxy%"
 
-ECHO %CURL% %* %use_proxy%
-"%CURL%" %* %use_proxy%
+SETLOCAL DisableDelayedExpansion
+ECHO "%CURL%  %use_proxy% %*"
+"%CURL%" %use_proxy% %*
 IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 EXIT /b 0
 
@@ -674,7 +754,7 @@ SET test=%~1
 
 REM Skip if not a share drive path, return original path
 IF NOT "%test:~0,2%" == "\\" (
-  ECHO %test%> .ret
+  ECHO "%test%"> .ret
   EXIT /b 0
 )
 
@@ -685,7 +765,7 @@ FOR /F "tokens=1,2,*" %%a IN (
 ) DO (
   ECHO %%a %%b %%c
   IF "%%a"=="OK" (
-    ECHO %%b> .ret
+    ECHO "%%b"> .ret
     EXIT /b 0
   )
 )
@@ -696,17 +776,105 @@ SET netOpts=NET USE * "%test%" /PERSISTENT:NO
 IF NOT "%~2" == "" SET netOpts=%netOpts% "/USER:%~2"
 IF NOT "%~3" == "" SET netOpts=%netOpts% %3
 ECHO Mapping %test% to a drive letter
-ECHO "%netOpts%"
 FOR /F "tokens=1,2,*" %%a IN ('%netOpts%') DO (
   ECHO %%a %%b %%c
   IF "%%a" == "Drive" (
-    ECHO %%b> .ret
+    ECHO "%%b"> .ret
     EXIT /b 0
   )
 )
 
 REM Seem like share drive cannot be mapped, return original path
-ECHO %test%> .ret
+  ECHO "%test%"> .ret
+EXIT /b 0
+
+
+REM
+REM FUNCTION runThread: Start a command in separate process, and schedule
+REM for wait in joinThread job. It also capture the process output
+REM
+REM @remark joinThread expect to be called to wait, and cleanup all the
+REM thread created by this function
+REM
+REM @param %* Command and arguments to be executed in separated thread
+REM
+REM @exception exit with error code if error
+REM
+REM @example 
+REM   CALL :runThread copy BigFile BigFileCopy
+REM   REM Do something else
+REM   ...
+REM   CALL :joinThread
+REM   REM Now we can work on BigFileCopy file
+REM   ...
+REM
+:runThread
+  SETLOCAL
+  :_thread_loop
+    SET lock=lock.%~nx1.%random%
+    IF EXIST .%lock% GOTO :_thread_loop
+
+  ECHO [NEW THREAD %lock%] %*
+  ECHO.%*>.%lock%.cmd
+  START "" cmd /C 9>.%lock% %* 1^>^&2 ^>.%lock%.out
+  IF ERRORLEVEL 1 EXIT %ERRORLEVEL%
+
+  ECHO CALL %THIS% _waitRunThread %lock%>> .cleanup.cmd
+  EXIT /b %ERRORLEVEL%
+
+
+REM
+REM FUNCTION joinThread: wait all for all threads finished. These threads
+REM were create by runThread function
+REM
+REM @remark I basically run .cleanup.cmd file. So if your script need
+REM addition cleaning command, they can be append to this file. So the
+REM cleanup job will be executed when calling this function.
+REM
+REM @exception exit with same error code before calling this
+REM
+REM
+:joinThread
+  SETLOCAL && SET error=%ERRORLEVEL%
+  IF EXIST .cleanup.cmd (
+    CALL .cleanup.cmd
+    DEL /F /Q .cleanup.cmd 2>/NUL
+  )
+  EXIT /b %error%
+
+
+REM
+REM Wait for all the lock files released
+REM @param %* List of lock files created by runThread command
+REM
+:_waitRunThread
+  SETLOCAL
+  FOR %%n IN (%*) DO (
+    FOR /F "usebackq delims=" %%c IN (".%%n.cmd") DO (
+      ECHO ## WAIT [THREAD %%n] %%c...
+    ) 2>/NUL
+  )
+
+  :_waitRunThreadLoop
+  FOR %%n IN (%*) DO (
+    IF EXIST .%%n (
+      (CALL ) 9>.%%n ^
+      || 1>/NUL ping /n 2 "::1" && GOTO :_waitRunThreadLoop
+    )
+  ) 2>/NUL
+
+  FOR %%n IN (%*) DO (
+    IF EXIST .%%n.out (
+      FOR /F "usebackq delims=" %%c IN (".%%n.cmd") DO (
+        ECHO ** Output of [THREAD %%n] %%c:
+      )
+      FOR /F "delims=" %%c IN (.%%n.out) DO ECHO.  ^| %%c
+      ECHO.
+      DEL /F .%%n.out
+    )
+    DEL /F .%%n.cmd 2>/NUL
+    DEL /F .%%n     2>/NUL
+  )
 EXIT /b 0
 
 
