@@ -34,7 +34,7 @@ pipeline
     {
       writeFile file: "$CIUTILS", text: readTrusted("ciUtils.cmd")
 
-      // Install git windows with lfs if not presented. Reboot to update
+      // Install git windows if not presented. Reboot to update
       // Agent environment
       lock( NODE_NAME ) { bat """where git \
         || echo THERE WILL BE ERRORS UNTIL AGENT REBOOT COMPLETED \
@@ -52,6 +52,13 @@ pipeline
       // Install cygwin
       bat """$CIUTILS getCygPkg https://cygwin.com/setup-x86_64.exe \
         git git-svn subversion sed gawk bash"""
+
+      // Install Git LFS to work with git Cygwin if not found
+      bat """IF NOT EXIST "$ProgramFiles\\Git LFS\\git-lfs.exe" \
+        $CIUTILS runUrl \
+          https://github.com/git-lfs/git-lfs/releases/download/v2.13.3/git-lfs-windows-v2.13.3.exe\
+          /VERYSILENT
+      """
     } /*steps*/ } /*stage*/ 
 
     stage("main") { parallel 
