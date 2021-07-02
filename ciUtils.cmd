@@ -452,6 +452,9 @@ FOR %%a IN ("%cacheL1%\%outFile%") DO (
 echo "%l1file%"> .ret
 IF EXIST "%l1file%" EXIT /b 0
 
+SET l3file=
+IF NOT "%cacheL3%"=="" SET l3file=%cacheL3%/%outFile%
+
 REM Try to take file from cache L2
 SET l2file=
 IF "%cacheL2%"=="" GOTO download_SkipL2
@@ -465,14 +468,20 @@ IF "%cacheL2%"=="" GOTO download_SkipL2
   )
   IF NOT EXIST "%l2file%" GOTO download_SkipL2
   
+  COPY /Y "%l2file%" "%l1file%" >nul 2>&1 || EXIT /b 1
+  ECHO "Copy %filename% from %cacheL2% to %l1file%" 
+
+  IF NOT "%l3file%" == "" CALL :runThread %THIS% ^
+    doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" ^
+      -o nul --insecure -x "" ^
+    && ECHO Save %filename% into %l3file%
+
   echo "%l1file%"> .ret
-  COPY /Y "%l2file%" "%l1file%" >nul 2>&1 ^
-    && ECHO "Copy %filename% from %cacheL2% to %l1file%" ^
-    && EXIT /b 0
+  EXIT /b 0
 :download_SkipL2
 
 REM Try to take file from cache L3
-IF "%cacheL3%"=="" GOTO download_SkipL3
+IF "%l3file%"=="" GOTO download_SkipL3
   SET l3file=%cacheL3%/%outFile%
   REM Check is the file exist on server
   CALL :doCurl "%l3file%" -o nul --silent --fail -r 0-0 -m 2 --insecure -x ""
@@ -485,8 +494,7 @@ IF "%cacheL3%"=="" GOTO download_SkipL3
   ECHO Download %filename% from %cacheL3% to %l1file% 
 
   REM Update cache L2
-  IF NOT "%l2file%" == "" COPY ^
-    /Y "%l1file%" "%l2file%" >nul 2>&1 ^
+  IF NOT "%l2file%" == "" COPY /Y "%l1file%" "%l2file%" >nul 2>&1 ^
     && ECHO "Save %filename% into %l2file%
   echo "%l1file%"> .ret
   EXIT /b 0
