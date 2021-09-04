@@ -1,9 +1,9 @@
-#!/bin/bash 
+#!/bin/bash
 #!/bin/bash -x
 scriptDir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 source "$scriptDir/logging"
 
-showHelp () 
+showHelp ()
 {
   cat <<EOF
 `basename "$BASH_SOURCE"` [options]
@@ -45,49 +45,55 @@ Options:
       Specify email file name to log committer's emails
 
   -m, --mergeSync
-      Use merge to synchronize when svn and git branch as splited. 
+      Use merge to synchronize when svn and git branch as splited.
       (Default)
 
   -n, --no-svnCommit
-      Use to do a dry run dcommit on SVN. 
+      Use to do a dry run dcommit on SVN.
 
   -p, --prompt
       Will stop a major point and ask for check before continue.
 
   -r, --rebaseSync
-      Use rebase to synchronize when svn and git branch as splited. 
+      Use rebase to synchronize when svn and git branch as splited.
 
   -s, --strategy STRATEGY_NAME
-      Specify git merge options. (Default is 
+      Specify git merge options. (Default is
       $mergeOpt)
+
+  -u, --use_migrate
+      Use lfs migrate when possible. There was a issue with mirgrate, so
+      the default is use a work around method to avoid lfs migrate bug
 
 EOF
 } # end of showHelp
 
-main () 
+main ()
 {
 setDefaultSettings
 
 # Go through all arguments
 while [[ ! -z "$1" ]]; do
-  if [[ $1 =~ ^-h|--help$         ]]; then showHelp; return; fi
+  if [[ $1 =~ ^-h$|^--help$         ]]; then showHelp; return; fi
 
-  if [[ $1 =~ ^--authors$         ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
-  if [[ $1 =~ ^--gitUrl$          ]]; then gitURL="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--ignore-paths     ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
-  if [[ $1 =~ ^--init$            ]]; then init=("$2");                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnPwd$          ]]; then svnPwd="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnUrl$          ]]; then svnURL="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnUser$         ]]; then svnUser="$2";                shift; shift; continue; fi
+  if [[ $1 =~ ^--authors$           ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
+  if [[ $1 =~ ^--gitUrl$            ]]; then gitURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--ignore-paths       ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
+  if [[ $1 =~ ^--init$              ]]; then init=("$2");                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnPwd$            ]]; then svnPwd="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUrl$            ]]; then svnURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUser$           ]]; then svnUser="$2";                shift; shift; continue; fi
 
-  if [[ $1 =~ ^-b|--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
-  if [[ $1 =~ ^-d|--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
-  if [[ $1 =~ ^-e|--email$        ]]; then emailFile=`realpath "$2"`;   shift; shift; continue; fi
-  if [[ $1 =~ ^-m|--mergeSync$    ]]; then rebaseSync="no";             shift;        continue; fi
-  if [[ $1 =~ ^-n|--no-svnCommit$ ]]; then dcommitOpt+=("-n");          shift;        continue; fi
-  if [[ $1 =~ ^-p|--prompt$       ]]; then prompt="yes";                shift;        continue; fi
-  if [[ $1 =~ ^-r|--rebaseSync$   ]]; then rebaseSync="yes";            shift;        continue; fi
-  if [[ $1 =~ ^-s|--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
+  if [[ $1 =~ ^-b$|^--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
+  if [[ $1 =~ ^-d$|^--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
+  if [[ $1 =~ ^-e$|^--email$        ]]; then emailFile=`realpath "$2"`;   shift; shift; continue; fi
+  if [[ $1 =~ ^-m$|^--mergeSync$    ]]; then rebaseSync="no";             shift;        continue; fi
+  if [[ $1 =~ ^-n$|^--no-svnCommit$ ]]; then dcommitOpt+=("-n");          shift;        continue; fi
+  if [[ $1 =~ ^-p$|^--prompt$       ]]; then prompt="yes";                shift;        continue; fi
+  if [[ $1 =~ ^-r$|^--rebaseSync$   ]]; then rebaseSync="yes";            shift;        continue; fi
+  if [[ $1 =~ ^-s$|^--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
+
+  if [[ $1 =~ ^-u$|^--use_migrate$  ]]; then use_lfs_migrate="yes";       shift;        continue; fi
 
   INFO "Unknown argument $1"
   exit 2
@@ -108,10 +114,10 @@ local lfsNewSHA="dummy"
 
 while [ "$run_again" != "no" ]; do
   run_again=no
-  if [ "$svnNewSHA$lfsNewSHA" == "$svnSHA1$lfsSHA1" ]; then 
+  if [ "$svnNewSHA$lfsNewSHA" == "$svnSHA1$lfsSHA1" ]; then
     INFO "****** No thing was updated Stop the sync loop"
     WARN "You may need to check to correct problem and run sync again"
-    break; 
+    break;
   fi
 
   lfsSHA1=`getSHA1 "$lfsBranch"`
@@ -144,7 +150,7 @@ setDefaultSettings()
   testdir="$HOME"
   local temp=`cygpath -m "$tmp"`
   if [ $? == 0 ]; then tmp=$temp; fi
-  
+
   authorFile="../authors-transform.txt"
   rebaseSync="no"
   prompt="no"
@@ -166,6 +172,8 @@ setDefaultSettings()
   temp=`git config --local --get remote.${gitRemote}.url 2> /dev/null`
   if [ $? == 0 ]; then gitURL="${temp}"; fi
 
+  use_lfs_migrate="no"
+
   init=()
 } # End of setDefaultSettings
 
@@ -184,7 +192,7 @@ checkSettings()
   else
     local errWillbe="Cannot access to svn without username/password!"
   fi
-  if [[ ! -z "$APPDATA" ]]; then 
+  if [[ ! -z "$APPDATA" ]]; then
     svnAccount+=(--config-dir "${APPDATA//\\/\/}")
   fi
   printf "\n\n\n\n\n" | svn info "${svnAccount[@]}" "$svnURL" &> "$tmp/error"
@@ -240,7 +248,7 @@ checkSettings()
     local curSvnUrl=`git config --local \
       --get remote.${gitRemote}.url 2>/dev/null`
     exitIfErr 1 "Please specify git URL"
-    gitURL="${curSvnUrl}"; 
+    gitURL="${curSvnUrl}";
   fi
 
   local status=`git status -s` &> /dev/null
@@ -307,7 +315,7 @@ init_fetchNewSvnFolder()
     exitIfErr 1 "Cannot switch to $gitBranch branch"
   fi
 
-  git config --local --get remote.${gitRemote}.url 
+  git config --local --get remote.${gitRemote}.url
   if [[ $? != 0 ]]; then
     INFO "****** Link ${gitRemote} to ${gitURL}"
     git remote add ${gitRemote} "${gitURL}"
@@ -318,7 +326,7 @@ init_fetchNewSvnFolder()
   git config --local svn-remote.svn.fetch ":refs/remotes/$svnRemote"
   exitIfErr 1 "Cannot configure remote SVN to $svnURL!"
 
-  if [[ ! -z $svnIgnorePaths ]]; then 
+  if [[ ! -z $svnIgnorePaths ]]; then
     git config --local svn-remote.svn.ignore-paths "$svnIgnorePaths"
   fi
   rm -rf "$repoDir/.git/svn" 2> /dev/null
@@ -336,7 +344,8 @@ init_fetchNewSvnFolder()
 
   # Send password twice because there was a case where svn asked for
   # password second times if the git-svn layout version not match
-  printf "$svnPwd\n$svnPwd\n$svnPwd\n$svnPwd\n$svnPwd\n" | \
+  printf "%s\n%s\n%s\n%s\n%s\n" \
+    "$svnPwd" "$svnPwd" "$svnPwd" "$svnPwd" "$svnPwd" | \
     git svn fetch --username "$svnUser" -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
     cat "'$filterLog'"'
@@ -355,16 +364,22 @@ init_fetchNewSvnFolder()
   if [[ ! -z "$lfsFilter" ]]; then
     INFO "****** Rebase SVN commits with lfs settings"
     # This WORKAROUND help git lfs migrate work more effective
-    git filter-branch --prune-empty -f --index-filter '
-      cp "'${tmp}'"/.git* .
-      git add .git*
-      ' -- "${lfsBranch}" 2> "$filterLog"
-    exitIf "$? != 0 && $? != 2" $? \
-      "Failed to apply LFS settings to $lfsBranch! due to:" '
-      cat "'$filterLog'"'
+    if [[ "$use_lfs_migrate"=="no" ]]; then
+      git filter-branch --prune-empty -f --index-filter '
+        cp "'${tmp}'"/.git* .
+        git add .git*
+        ' -- "${lfsBranch}" 2> "$filterLog"
+      exitIf "$? != 0 && $? != 2" $? \
+        "Failed to apply LFS settings to $lfsBranch! due to:" '
+        cat "'$filterLog'"'
 
-    git lfs install --local
-    git lfs migrate import --fixup "$lfsBranch"
+      git lfs install --local
+      git lfs migrate import --fixup "$lfsBranch"
+    else
+      git lfs install --local
+      git lfs migrate import --include="$lfsFilter" "$lfsBranch"
+    fi
+
     exitIfErr 1 "Failed to migrate to LFS"
 
     git update-ref -d "refs/original/refs/heads/$lfsBranch"
@@ -376,7 +391,7 @@ init_fetchNewSvnFolder()
     INFO "****** Backup $gitBranch branch to $backupBranch"
   fi
 
-  INFO "****** Set $gitBranch branch to $lfsBranch"; 
+  INFO "****** Set $gitBranch branch to $lfsBranch";
   retry 4 git branch -f "$gitBranch" "$lfsBranch"
   exitIfErr 1 "Cannot set $gitBranch to $lfsBranch"
 
@@ -390,7 +405,7 @@ syncSVNtoGIT()
 {
   INFO "****** Fetch new commits from SVN to $svnRemote"
   local svnOldSHA1=`getSHA1 "$svnRemote"`
-  printf "$svnPwd\n" | \
+  printf "%s\n" "$svnPwd" | \
     git svn fetch --username "$svnUser" \
     -A "$authorFile" 2> "$filterLog"
   exitIfErr 1 "Cannot fetch commits from SVN \\($svnURL\\)! due to:" '
@@ -427,13 +442,13 @@ syncSVNtoGIT()
 
     INFO "Repair, and find new binary file for apply LFS"
     git filter-branch --prune-empty -f --index-filter '
-      cp "'"${tmp}"'/.gitattributes" .gitattributes 
+      cp "'"${tmp}"'/.gitattributes" .gitattributes
       git diff "'${svnBranch}'" --cached --name-only --diff-filter=ACR \
         | while read f; do
           git check-attr filter "$f" | grep "filter: unspecified$" >/dev/null
           if [ $? != 0 ]; then continue; fi
 
-          git checkout-index -f -- "$f" 
+          git checkout-index -f -- "$f"
           echo "$f" | perl -lne "exit 1 if -B"
           if [ $? == 0 ]; then continue; fi
 
@@ -442,7 +457,7 @@ syncSVNtoGIT()
         done
 
       git add .gitattributes
-      cp .gitattributes "'"${tmp}"'/.gitattributes" 
+      cp .gitattributes "'"${tmp}"'/.gitattributes"
       ' -- "${svnBranch}".."${tryLfsMerge}" 2> "$filterLog"
     exitIf "$? != 0 && $? != 2" $? \
       "Cannot apply LFS setting on new SVN commits!" '
@@ -473,7 +488,7 @@ syncSVNtoGIT()
   git rebase -s recursive -X theirs \
     --onto "$lfsBranch" "$svnBranch" "$tryLfsMerge"
 
-  # This loop try to resolve some of the conflict that can be simply 
+  # This loop try to resolve some of the conflict that can be simply
   # solve - such as:
   # * Removed files from git, but detected modified from SVN
   while [[ $? != 0 ]]; do
@@ -483,11 +498,11 @@ syncSVNtoGIT()
 
     INFO "**** Try to resolve conflict automatically at $newHead"
 
-    if [[ $newHead == $oldHead ]]; then 
+    if [[ $newHead == $oldHead ]]; then
       ERROR "Cannot apply new SVN commit onto $lfsBranch!"
-      if [ "$prompt" == "yes" ]; then 
+      if [ "$prompt" == "yes" ]; then
         read -p "Check why rebase is failed..."
-      fi 
+      fi
       git rebase --abort
       myExit 1
     fi
@@ -496,7 +511,7 @@ syncSVNtoGIT()
     cat "$tmp/gitStatus"
 
     # Conflict ".D"
-    # * A file deleted from svn 
+    # * A file deleted from svn
     sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
       | while read f; do git rm -f "$f"; done
 
@@ -557,7 +572,7 @@ adjGitBranch()
 
   local gitSHA=`getSHA1 "$gitBranch"`
   local lfsSHA=`getSHA1 "$lfsBranch"`
-  if [ $gitSHA == $lfsSHA ]; then 
+  if [ $gitSHA == $lfsSHA ]; then
     INFO "Nothing to be syn."
     return 1;
   fi
@@ -573,7 +588,7 @@ adjGitBranch()
   git log --pretty=format:%ce $mergeBaseSHA1.."$gitBranch" >> "${emailFile}"
   git log --pretty=format:%ce $mergeBaseSHA1.."$lfsBranch" >> "${emailFile}"
 
-  if [ $lfsSHA == $mergeBaseSHA1 ]; then 
+  if [ $lfsSHA == $mergeBaseSHA1 ]; then
     #      -- <--lfsBranch
     #     /
     # *--*--* <--gitBranch
@@ -612,11 +627,11 @@ adjGitBranch()
       "Cannot readjust committer info onto $gitBranch!"
   fi
 
-  if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_REBASE ]]; then 
+  if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_REBASE ]]; then
     source $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_REBASE
   fi
   retry 4 git push "$gitRemote" -u --force-with-lease "$gitBranch"
-  if [[ $? != 0 ]]; then 
+  if [[ $? != 0 ]]; then
     WARN "Cannot push $gitBranch. It Ok, if it had changed on remote."
     WARN "Going to try again..."
     run_again=yes
@@ -671,7 +686,7 @@ syncGITtoSVN()
           ref="'"$tmp"'/lfs-$ref"
           if [ ! -f "$ref" ]; then
             cat "$f" | git lfs smudge > "$ref"
-            if [ $? != 0 ]; then 
+            if [ $? != 0 ]; then
               rm -f "$ref"
               >&2 printf "\n  Cannot remove LFS pointer for $f\n"
               exit 3
@@ -686,7 +701,7 @@ syncGITtoSVN()
       done
     ' >> "$tmp/rebaseWork"
   fi
-    
+
   echo '
     if [[ -f "'"$tmp\rebaseWorkAmend"'" ]]; then
       git commit --amend --allow-empty -C HEAD
@@ -706,7 +721,7 @@ syncGITtoSVN()
   git rebase -s recursive -X theirs --exec "source \"$tmp/rebaseWork\""\
     --onto "$svnRemote" "$lfsBranch" "$tryMerge" 2> "$tmp/rebase"
 
-  # This loop try to resolve some of the conflict that can be simply 
+  # This loop try to resolve some of the conflict that can be simply
   # solve - such as:
   # * Removed files from git, but detected modified from SVN
   while [[ $? != 0 ]]; do
@@ -716,16 +731,16 @@ syncGITtoSVN()
 
     INFO "**** Try to resolve conflict automatically at $newHead"
 
-    if [[ $newHead == $oldHead ]]; then 
+    if [[ $newHead == $oldHead ]]; then
       if [[ $maxWarnCnt -ne 0 ]]; then
         DBG_EVAL 'cat "$tmp/rebase"'
         WARN "Resolve same SHA-1 again!"
         ((maxWarnCnt=maxWarnCnt-1))
       else
         ERROR "Cannot rebase $gitBranch branch onto of $svnRemote!"
-        if [ "$prompt" == "yes" ]; then 
+        if [ "$prompt" == "yes" ]; then
           read -p "Check why rebase is failed..."
-        fi 
+        fi
         [[ "$lfsFilter" ]] && git lfs install --local
         git rebase --abort
         myExit 1
@@ -739,40 +754,40 @@ syncGITtoSVN()
     # Conflict "*D" - " Deleted by theirs (master)
     # * A file added from SVN but remove by master
     sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
-      | while read f; do 
-        rm -f "$f" 
-        git add -v "$f" 
+      | while read f; do
+        rm -f "$f"
+        git add -v "$f"
         echo >"$tmp\rebaseWorkAmend"
       done
 
     # Handle some cases where the item were submodule and had been
     # excluded or deleted from SVN branches
     sed -ne "s/^D. \(.*\)$/\1/p" "$tmp/gitStatus" \
-      | while read f; do 
+      | while read f; do
         # Obtain the item type
         local type=`git ls-tree $newHead -- "$f" \
           | sed -En "s/[^ ]+ ([^ ]+).*/\1/p"`
 
         if [[ "$type" == "commit" ]]; then
         # commit type usually is a submodule folder, so we discard it
-          rm -f "$f" 
+          rm -f "$f"
         else
           git checkout $newHead -- "$f"
         fi
-        git add -v "$f" 
+        git add -v "$f"
         echo >"$tmp\rebaseWorkAmend"
       done
 
     # Take any other changes from master
     sed -ne "s/^[^D][^D] \(.*\)$/\1/p" "$tmp/gitStatus" \
-      | while read f; do 
+      | while read f; do
       git checkout $newHead -- "$f"
-      git add -v "$f" 
+      git add -v "$f"
       echo >"$tmp\rebaseWorkAmend"
     done
 
     if [[ -f "$tmp\rebaseWorkAmend" ]]; then
-      git commit -C $newHead      
+      git commit -C $newHead
     fi
 
     # Code use to debug this process
@@ -805,18 +820,18 @@ syncGITtoSVN()
     read -p "Check $tryMerge before run dcommit, Press Enter...."
   fi
 
-  if [[ -f $testdir/.SYNC_TEST_SVN_CHANGE ]]; then 
+  if [[ -f $testdir/.SYNC_TEST_SVN_CHANGE ]]; then
     source $testdir/.SYNC_TEST_SVN_CHANGE
   fi
   INFO "**** Check make sure no new SVN commit ***"
   syncSVNtoGIT && run_again=true && return
 
   INFO "****** Do DCommit to push git commits into SVN server"
-  if [[ -f $testdir/.SYNC_TEST_SVN_CHANGE_WHILE_DCOMMIT ]]; then 
+  if [[ -f $testdir/.SYNC_TEST_SVN_CHANGE_WHILE_DCOMMIT ]]; then
     source $testdir/.SYNC_TEST_SVN_CHANGE_WHILE_DCOMMIT
   fi
   local newCommitCnt=`git rev-list --count "$svnBranch"..$tryMerge`
-  printf "$svnPwd\n" | \
+  printf "%s\n" "$svnPwd" | \
     git svn dcommit --username "$svnUser" \
     --use-log-author --add-author-from \
     "${dcommitOpt[@]}" $tryMerge 2> "$filterLog"
@@ -829,7 +844,7 @@ syncGITtoSVN()
   local uncommittedCnt=0
   ((uncommittedCnt = newCommitCnt - committedCnt ))
   INFO "There is $committedCnt/$newCommitCnt committed into SVN server"
-  
+
   if [ "$prompt" == "yes" ]; then
     read -p "Check $svnRemote before update branches.Press Enter...."
   fi
@@ -840,8 +855,8 @@ syncGITtoSVN()
     if [[ $committedCnt != 0 ]]; then
       # What IFF dcommit introducing new commits from SVN? How to migrate
       # these commits into lfsBranch before update lfsBranch.  It rarely
-      # occurred because we run syncSVNtoGIT before this. 
-      ERROR "UNABLE TO HANDLE dcommit that mix with new SVN commits" 
+      # occurred because we run syncSVNtoGIT before this.
+      ERROR "UNABLE TO HANDLE dcommit that mix with new SVN commits"
       myExit 1
     fi
 
@@ -871,7 +886,7 @@ syncGITtoSVN()
   git checkout -f "$tryLfsMerge"
   exitIfErr 1 "Cannot checkout $tryLfsMerge"
 
-  if [ "$rebaseSync" != "yes" ]; then 
+  if [ "$rebaseSync" != "yes" ]; then
     INFO "***** Merge $gitBranch and $lfsBranch"
     git merge --ff ${mergeOpt} \
       -m "Auto merge $lfsBranch to $gitBranch" "$lfsBranch"
@@ -894,7 +909,7 @@ syncGITtoSVN()
     read -p "Check $gitBranch, $lfsBranch, $svnBranch before push. Press Enter...."
   fi
 
-  if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_MERGE ]]; then 
+  if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_MERGE ]]; then
     source $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_MERGE
   fi
   retry 4 git push $gitRemote -u -f "$lfsBranch"
@@ -980,7 +995,7 @@ getSvnCommiters()
   cat "$tmp/svn_log" \
     | awk -F '|' \
              '/^r/ {sub("^ ", "", $2); sub(" $", "", $2);\
-              printf $2" = "$2" <"$2">"}' \
+              printf "%s = %s <%s>\n" "$2" "$2" "$2"}' \
     | sort -u > "$authorFile"
   exitIfErr $? "Cannot process svn log!"
 
@@ -1013,7 +1028,7 @@ retry()
   while [[ $tryCnt -lt $cnt ]]; do
     ((tryCnt+=1))
     if [[ $tryCnt -gt 1 ]]; then
-      WARN "Try #$tryCnt -- make sure previous fail aren't real" 
+      WARN "Try #$tryCnt -- make sure previous fail aren't real"
       sleep 1
     fi
 
