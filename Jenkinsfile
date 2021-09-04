@@ -10,19 +10,21 @@ pipeline
     ansiColor('xterm')
   }
 
-  environment {
+  environment
+  {
     cacheL1     = "$BASE\\caches"
-    cacheL2     = "\\\\att\\distribution\\cached"
-    ci_proxy    = "http://185.46.212.91:80"
-    CIUTILS     = "${pwd( tmp: true )}\\ciUtils.cmd"
+    DEF_ENV_URL = "http://att/distribution/config/env/jenkins.txt"
+
+    CIUTILS     = "ciUtils.cmd"
 
     // Bellow try to use clean windows environment
-    APPDATA     = pwd( tmp: true )
-    LOCALAPPDATA= pwd( tmp: true )
     USERPROFILE = pwd( tmp: true )
     HOME        = pwd( tmp: true )
+    APPDATA     = pwd( tmp: true )
+    LOCALAPPDATA= pwd( tmp: true )
     TMP         = pwd( tmp: true )
     TEMP        = pwd( tmp: true )
+
     PATH        = "$ProgramFiles\\Git LFS;$PATH"
   }
 
@@ -30,25 +32,17 @@ pipeline
   {
     // Checkout the repository. Install Windows Git if the agent machine
     // don't have git installed
-    stage('checkout') { steps 
+    stage('checkout') { steps
     {
-      writeFile file: "$CIUTILS", text: readTrusted("ciUtils.cmd")
-
-      // Install git windows if not presented. Reboot to update
-      // Agent environment
-      lock( NODE_NAME ) { bat """where git \
-        || echo THERE WILL BE ERRORS UNTIL AGENT REBOOT COMPLETED \
-        && $CIUTILS runUrl \
-              https://github.com/git-for-windows/git/releases/download/v2.31.1.windows.1/Git-2.31.1-64-bit.exe \
-              /VERYSILENT \
-        && shutdown /r /t 0""" }
-
+      writeFile file:CIUTILS, text:readTrusted(CIUTILS).replace('\n','\r\n')
       retry(7) { sleep(binding.variables.putIfAbsent('delay', 20)?:0)
-        checkout scm: scm }
-    } /*steps*/ } /*stage*/ 
+        bat "$CIUTILS gitFetchCache" }
 
-    stage("setup") { steps 
-    { 
+      checkout scm: scm
+    } /*steps*/ } /*stage*/
+
+    stage("setup") { steps
+    {
       // Install cygwin
       bat """$CIUTILS getCygPkg https://cygwin.com/setup-x86_64.exe \
         git git-svn subversion sed gawk bash"""
@@ -59,9 +53,9 @@ pipeline
           https://github.com/git-lfs/git-lfs/releases/download/v2.13.3/git-lfs-windows-v2.13.3.exe\
           /VERYSILENT
       """
-    } /*steps*/ } /*stage*/ 
+    } /*steps*/ } /*stage*/
 
-    stage("main") { parallel 
+    stage("main") { parallel
     {
       stage("syntax") { steps { bat "$CIUTILS runBash ./cijobs.sh syntax" } }
       stage("test"  ) { steps { bat "$CIUTILS runBash ./cijobs.sh test"   } }
@@ -70,8 +64,8 @@ pipeline
 
   post
   {
-    regression { script { sendEmail() } }
-    fixed      { script { sendEmail() } }
+    unsuccessful { script { sendEmail() } }
+    fixed        { script { sendEmail() } }
   }
 }
 
@@ -79,11 +73,11 @@ pipeline
 def sendEmail()
 {
   emailext \
-    subject : "$env.JOB_NAME #$env.BUILD_NUMBER: $currentBuild.result",
+    subject : "$currentBuild.currentResult: $env.JOB_NAME #$env.BUILD_NUMBER",
     body    : """Following reports are for $env.BRANCH_NAME branch:
       * Branch's builds summary: $env.JOB_URL
       * Build summary: $env.RUN_DISPLAY_URL
       * Build detail console: $env.BUILD_URL/console
     """,
-    recipientProviders: [culprits(), requestor()]
+    recipientProviders: [developers(), culprits(), requestor()]
 }
