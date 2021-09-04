@@ -7,12 +7,12 @@ scriptDir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 source "$scriptDir/logging"
 source "$scriptDir/utils"
 
-showHelp () 
+showHelp ()
 {
   cat <<EOF
 `basename "$BASH_SOURCE"` [options] [Sync_Script_Options] [{SVN_FOLDER_A}]
 
-This script should be called by scheduler to sync change between SVN and Git 
+This script should be called by scheduler to sync change between SVN and Git
 repositories.
 
 Options:
@@ -34,7 +34,7 @@ Options:
     Turn on detail run log
 
   -g, --gitDir GITS_PATH
-      Specifiy where all the synch git repositories location. 
+      Specifiy where all the synch git repositories location.
       (Default $gits)
 
   --gitDot DOTGIT_FILES_LOCATION
@@ -64,26 +64,26 @@ main()
 
   # Go through all arguments
   while [[ ! -z "$1" ]]; do
-    if [[ $1 =~ ^-h|--help$     ]]; then showHelp; return; fi
+    if [[ $1 =~ ^-h$|^--help$    ]]; then showHelp; return; fi
 
-    if [[ $1 =~ ^--noflock$     ]]; then flock='no';                           shift;        continue; fi
-    if [[ $1 =~ ^-f|--force$    ]]; then force='yes';                          shift;        continue; fi
-    if [[ $1 =~ ^-t|--threads$  ]]; then max_threads=$2;                       shift; shift; continue; fi
-    if [[ $1 =~ ^-v|--verbose$  ]]; then veb="yes";                            shift;        continue; fi
+    if [[ $1 =~ ^--noflock$      ]]; then flock='no';             shift;        continue; fi
+    if [[ $1 =~ ^-f$|^--force$   ]]; then force='yes';            shift;        continue; fi
+    if [[ $1 =~ ^-t$|^--threads$ ]]; then max_threads=$2;         shift; shift; continue; fi
+    if [[ $1 =~ ^-v$|^--verbose$ ]]; then veb="yes";              shift;        continue; fi
 
-    if [[ $1 =~ ^-g|--gitDir$   ]]; then gits=`realpath "$2"`;                 shift; shift; continue; fi
-    if [[ $1 =~ ^--gitDot$      ]]; then gitDOT=`realpath "$2"`;               shift; shift; continue; fi
-    if [[ $1 =~ ^--gitUrl$      ]]; then gitURL="$2";                          shift; shift; continue; fi
-    if [[ $1 =~ ^-l|--logDir    ]]; then logDir=`realpath "$2"`;               shift; shift; continue; fi 
+    if [[ $1 =~ ^-g$|^--gitDir$  ]]; then gits=`realpath "$2"`;   shift; shift; continue; fi
+    if [[ $1 =~ ^--gitDot$       ]]; then gitDOT=`realpath "$2"`; shift; shift; continue; fi
+    if [[ $1 =~ ^--gitUrl$       ]]; then gitURL="$2";            shift; shift; continue; fi
+    if [[ $1 =~ ^-l$|^--logDir$  ]]; then logDir=`realpath "$2"`; shift; shift; continue; fi
 
     # These are Sync Options
-    if [[ $1 =~ ^--authors$ ]]; then authorFile=`realpath "$2"`;               shift; shift; continue; fi
-    if [[ $1 =~ ^--svnPwd$  ]]; then svnPwd="$2";                              shift; shift; continue; fi
-    if [[ $1 =~ ^--svnUrl$  ]]; then svnURL="$2";                              shift; shift; continue; fi
-    if [[ $1 =~ ^--svnUser$ ]]; then svnUser="$2";                             shift; shift; continue; fi
+    if [[ $1 =~ ^--authors$      ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
+    if [[ $1 =~ ^--svnPwd$       ]]; then svnPwd="$2";                 shift; shift; continue; fi
+    if [[ $1 =~ ^--svnUrl$       ]]; then svnURL="$2";                 shift; shift; continue; fi
+    if [[ $1 =~ ^--svnUser$      ]]; then svnUser="$2";                shift; shift; continue; fi
 
-    if [[ $1 =~ ^--[a-zA-Z].*$ ]]; then syncOps+=("$1" "`tryRealPath "$2"`");  shift; shift; continue; fi;
-    if [[ $1 =~ ^-[a-zA-Z]*$   ]]; then syncOps+=("$1");                       shift;        continue; fi;
+    if [[ $1 =~ ^--[a-zA-Z].*$   ]]; then syncOps+=("$1" "`tryRealPath "$2"`");  shift; shift; continue; fi;
+    if [[ $1 =~ ^-[a-zA-Z]*$     ]]; then syncOps+=("$1");                       shift;        continue; fi;
 
     repos+=("$1"); shift;
   done
@@ -101,7 +101,7 @@ main()
 
   # Spin up threads
   pushd "$gits"
-  for f in "${repos[@]}"; do 
+  for f in "${repos[@]}"; do
     waitNThreads "$logDir/" "/lock" "$max_threads" " on $f"
     work_on "$f";
   done
@@ -144,13 +144,13 @@ work_on()
       return
     fi
 
-    if [[ -d "${git_dirname}" ]]; then 
+    if [[ -d "${git_dirname}" ]]; then
       ERROR "${git_dirname} already exist"
       return
     fi
 
-    if [[ "$flock" != "yes" && -f "$lock" ]]; then 
-      ERROR "Some thread may still running. 
+    if [[ "$flock" != "yes" && -f "$lock" ]]; then
+      ERROR "Some thread may still running.
       Please wait or remove ${lock}"
       return
     fi
@@ -161,10 +161,10 @@ work_on()
   (
     EXIT_CMDS=()
     if [[ "$flock" == "yes" ]]; then flock -n 9; fi
-    exitIfErr 0 "Other process is still running. 
+    exitIfErr 0 "Other process is still running.
     If not, please remove $lock file."
     EXIT_CMDS=("rm -f \"$lock\" 2>/dev/null")
-    
+
     INFO "++++ Initialize $git_dirname...."
 
     if [[ -f "$errPath" && "$force" == "yes" ]]; then
@@ -201,7 +201,7 @@ work_on()
         DBG ">${cmd[@]}"
         "${cmd[@]}" || exit $?
         popd
-      ) || echo $? > "$repoLogDir/errCode" 
+      ) || echo $? > "$repoLogDir/errCode"
     ) 2>&1 | while IFS= read line; do
       echo "$line" >> "$repoLogDir/$logFile";
       if [ "$veb" == "yes" ]; then

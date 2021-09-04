@@ -49,14 +49,14 @@ main ()
 
   # Go through all arguments
   while [[ ! -z "$1" ]]; do
-    if [[ $1 =~ ^-h|--help$     ]]; then showHelp;    return; fi
-    if [[ $1 =~ ^-l|--list$     ]]; then getAllTests; return; fi
+    if [[ $1 =~ ^-h$|^--help$     ]]; then showHelp;    return; fi
+    if [[ $1 =~ ^-l$|^--list$     ]]; then getAllTests; return; fi
 
-    if [[ $1 =~ ^-v|--verbose$  ]]; then verbose='y';      shift;        continue; fi
-    if [[ $1 =~ ^-logLevel$     ]]; then testLogLvl=$2;    shift; shift; continue; fi
-    if [[ $1 =~ ^-d|--disable$  ]]; then disableTest "$2"; shift; shift; continue; fi
-    if [[ $1 =~ ^-i|--ignore$   ]]; then ignoreDep='y';    shift;        continue; fi
-    if [[ $1 =~ ^-f|--failFast$ ]]; then failFast='y';     shift;        continue; fi
+    if [[ $1 =~ ^-v$|^--verbose$  ]]; then verbose='y';      shift;        continue; fi
+    if [[ $1 =~ ^-logLevel$       ]]; then testLogLvl=$2;    shift; shift; continue; fi
+    if [[ $1 =~ ^-d$|^--disable$  ]]; then disableTest "$2"; shift; shift; continue; fi
+    if [[ $1 =~ ^-i$|^--ignore$   ]]; then ignoreDep='y';    shift;        continue; fi
+    if [[ $1 =~ ^-f$|^--failFast$ ]]; then failFast='y';     shift;        continue; fi
 
     if [[ $1 =~ ^-.* ]]; then INFO "Unknown argument $1";  exit 2; fi
     tests+=("$1"); shift;
