@@ -113,7 +113,7 @@ syncASvnFolder()
   name="[${name: -15}]"
   local repoLogDir="$logDir/$repoName"
   local errPath="$repoLogDir/error.log"
-  local lock="$repoLogDir/lock"
+  local lock="$gits/$repoName.lock"
 
   error_files+=("$errPath")
 
