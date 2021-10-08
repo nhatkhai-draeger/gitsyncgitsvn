@@ -656,7 +656,7 @@ REM
   IF EXIST "%l1file%" ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
 
   SET l3file=
-  IF NOT "%cacheL3%"=="" SET l3file=%cacheL3%/%outFile%
+  IF NOT "%cacheL3%"=="" SET l3file=%cacheL3%/%outFile:\=/%
 
   REM Try to take file from cache L2
   SET l2file=
@@ -676,8 +676,7 @@ REM
     ECHO "Copy %filename% from %cacheL2% to %l1file%"
 
     IF NOT "%l3file%" == "" CALL :runThread %_ciutils% ^
-      doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" ^
-        -o nul --insecure -x "" ^
+      doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" --insecure -x "" ^
       && ECHO Save %filename% into %l3file%
 
     ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
@@ -691,7 +690,8 @@ REM
     IF ERRORLEVEL 1 GOTO :_download_SkipL3
 
     REM Try to download from cacheL3
-    CALL :doCurl "%l3file%" -o "%l1file%.dl" --fail --insecure %curl_opts%
+    CALL :doCurl "%l3file%" -o "%l1file%.dl" --fail --insecure -x ""
+    %curl_opts%
     IF ERRORLEVEL 1 GOTO :_download_SkipL3
     MOVE /Y "%l1file%.dl" "%l1file%" >/NUL ^
       || ENDLOCAL && SET "_ret=" && EXIT /b 1
@@ -715,7 +715,7 @@ REM
   IF NOT "%l2file%" == "" COPY /Y "%l1file%" "%l2file%" >/NUL 2>&1 ^
     && ECHO Save %filename% into %l2file%
   IF NOT "%l3file%" == "" CALL :runThread %_ciutils% ^
-    doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" -o nul --insecure -x "" ^
+    doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" --insecure -x "" ^
     && ECHO Save %filename% into %l3file%
 
 ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
@@ -1379,7 +1379,7 @@ REM
   REM Search of the share drive path already mapped. If found, return the
   REM drive letter
   FOR /F "tokens=1,2,*" %%a IN (
-    'NET USE ^| findstr /R /B /C:"OK  *.:" ^| findstr /C:"%test%"'
+    'NET USE ^| findstr /R /B /C:"OK  *.:" ^| findstr /C:"%test% "'
   ) DO (
     ECHO %%a %%b %%c
     IF "%%a"=="OK" (
