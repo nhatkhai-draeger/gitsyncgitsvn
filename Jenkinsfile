@@ -37,6 +37,7 @@ pipeline
       writeFile file:CIUTILS, text:readTrusted(CIUTILS).replace('\n','\r\n')
       retry(7) { sleep(binding.variables.putIfAbsent('delay', 20)?:0)
         bat "$CIUTILS gitFetchCache" }
+      script { readProperties(file: ".ret").each { k, v -> env[k]=v } }
 
       checkout scm: scm
     } /*steps*/ } /*stage*/
