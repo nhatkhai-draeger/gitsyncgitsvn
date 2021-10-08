@@ -133,7 +133,7 @@ work_on()
 
   local repoLogDir="$logDir/${git_dirname}"
   local errPath="$repoLogDir/error.log"
-  local lock="$repoLogDir/lock"
+  local lock="$git_dirname.lock"
 
   error_files+=("$errPath")
 
