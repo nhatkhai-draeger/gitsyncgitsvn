@@ -36,8 +36,10 @@
 @REM COMMANDS:
 @ECHO OFF
 :_main
+  SET _arg=%*
+  CALL :escPercent _arg
   IF NOT "%CIUTILS_TRACE%"=="" IF NOT "%~1"=="traceCmd" (
-    SET "_traceFile=%~0" && CALL :traceCmd %*
+    SET "_traceFile=%~0" && CALL :traceCmd %_arg%
     EXIT /b %ERRORLEVEL%
   )
 
@@ -48,7 +50,7 @@
   IF "%~1" == "--help" GOTO :_help
 
   SET _ciutils=%0
-  CALL :%* && EXIT /b 0
+  CALL :%_arg% && EXIT /b 0
 
   IF "%http_proxy%%ci_proxy%"=="" ECHO WARN: %%http_proxy%% or %%ci_proxy%% may need
   IF "%cacheL2%%cacheL3%"    =="" ECHO WARN: %%cacheL2%% or %%cacheL3%% may need
@@ -59,7 +61,9 @@
 REM FN runBash: Run a bash command
 REM
 REM If bash not installed in the system, it automatically install cygwin
-REM bash.
+REM bash. All to post console message before execute bash would re-direct
+REM to stderr, and allow caller capture bash command output only from
+REM stdout.
 REM
 REM @param %* bash command string
 REM
@@ -90,25 +94,29 @@ REM @param %DEV_ENV_URL% (optional) URL to file provide addition
 REM         environment setting. This might contribute to the installation
 REM         of cygwin when needed.
 REM
-REM @exception exit with error code if failed
+REM @exception exit with error code 1 if cannot find bash.exe.
+REM   Otherwise, exit with error code result from executed bash command
+REM
+REM @return bash.exe full path that use to execute bash command in %_ret%
 REM
 REM @test CALL :runBash ls -al "/cygdrive/c/Program Files"
 REM
 :runBash
+  SET _ret=
   SETLOCAL EnableDelayedExpansion
-  IF NOT "%DEF_ENV_URL%"=="" CALL :setEnvUrl "%DEF_ENV_URL%" || EXIT /b 1
+  IF NOT "%DEF_ENV_URL%"=="" CALL :setEnvUrl "%DEF_ENV_URL%" 1>&2 || EXIT /b 1
 
   IF NOT EXIST "%BASH_CMD%" SET BASH_CMD=C:\cygwin\bin\bash.exe
   IF NOT EXIST "%BASH_CMD%" SET BASH_CMD=C:\cygwin64\bin\bash.exe
   IF NOT EXIST "%BASH_CMD%" (
-    CALL :getCygPkg "%cygwin_url%" bash curl sed
+    CALL :getCygPkg "%cygwin_url%" bash curl sed 1>&2
     IF ERRORLEVEL 1 EXIT /b !ERRORLEVEL!
     IF NOT EXIST "%BASH_CMD%" SET BASH_CMD=C:\cygwin\bin\bash.exe
   )
 
   IF NOT EXIST "%BASH_CMD%" FOR %%a IN (bash.exe) DO SET BASH_CMD=%%~$PATH:a
   IF NOT EXIST "%BASH_CMD%" (
-    ECHO Cannot find Bash.exe. Please specify location in BASH_CMD
+    ECHO Cannot find Bash.exe. Please specify location in BASH_CMD 1>&2
     EXIT /b 1
   )
   IF "%TMPDIR%"=="" SET TMPDIR=%TMP%
@@ -116,8 +124,8 @@ REM
     '[[ "$TMPDIR" ]] ^&^& export TEMP="$TMPDIR"; ^
      export TMP="$TEMP"; ^
      cd "%CD:\=/%"; %*'
-  IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
-EXIT /b 0
+  ENDLOCAL SET _ret=%BASH_CMD%
+EXIT /b %ERRORLEVEL%
 
 
 @REM   runMsiUrl  [MSI_OPTION...] MSI_FILE_URL
@@ -163,6 +171,7 @@ REM
   IF "%url%"=="" EXIT /b 1
 
   REM Try to download and run installer
+  CALL :escPercent url
   CALL :download "%url%"
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
   SET "msiSetup=%_ret%"
@@ -214,6 +223,7 @@ REM
   IF "%url%"=="" EXIT /b 1
 
   REM Try to download and run installer
+  CALL :escPercent url
   CALL :download "%url%"
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
   FOR %%a IN ("%_ret%") DO SET "cmdPath=%%~dpsa" ^
@@ -262,7 +272,9 @@ REM
   DEL /F .%PID%.runOnce 2>/NUL
   IF EXIST "%md5%" EXIT /b 0
 
-  CALL :%*
+  SET _arg=%*
+  CALL :escPercent _arg
+  CALL :%_arg%
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
   (ECHO.)> "%md5%"
@@ -412,6 +424,7 @@ REM
   SET vsInstaller=%vsLayout%\vs_setup.exe
   IF EXIST "%vsInstaller%" GOTO :_getVsPkg_skip_layout
     ECHO Creating Visual Studio Layout...
+    CALL :escPercent vsInstallerURL
     CALL :download "%vsInstallerURL%" "/vs_.*\.exe" >/NUL
     IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
     FOR %%a IN ("%_ret%") DO IF NOT "%%~xa"==".exe" (
@@ -483,13 +496,15 @@ REM @test CALL :getCygPkg "https://cygwin.com/setup-x86.exe" bash curl sed
 REM
 :getCygPkg
   SETLOCAL EnableDelayedExpansion
+  SET _arg=%*
+  CALL :escPercent _arg
 
   REM Try to check of the Cygwin module already exist
   IF "%CYGCHECK_CMD%"=="" SET CYGCHECK_CMD=C:\cygwin\bin\cygcheck.exe
   IF NOT EXIST "%CYGCHECK_CMD%" SET CYGCHECK_CMD=C:\cygwin64\bin\cygcheck.exe
   IF EXIST "%CYGCHECK_CMD%" (
     DEL /F .reqsMods 2>/NUL
-    CALL :getCygPkgGenReqsModsLoop %*
+    CALL :getCygPkgGenReqsModsLoop %_arg%
     (ECHO Cygwin)>> .reqsMods
     (ECHO Package)>> .reqsMods
     "%ComSpec%\..\sort.exe" .reqsMods /O .reqsMods
@@ -527,6 +542,7 @@ REM
   )
 
   REM Try to download and run installer
+  CALL :escPercent url
   CALL :download "%url%"
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
   FOR %%a IN ("%_ret%") DO SET cygSetup=%%~dpsa\%%~nxa
@@ -608,7 +624,9 @@ REM
   IF "%fileRegex%"=="" GOTO :_download_skip_fileRegex
     REM Download the specify url into a file, and search for links that
     REM match fileRegex
-    CALL :download "%url%"
+    set _arg="%url%"
+    CALL :escPercent _arg
+    CALL :download %_arg%
 
     REM Search for real url from supplied %fileRegex%
     SET "new_url="
@@ -675,8 +693,10 @@ REM
       || ENDLOCAL && SET "_ret=" && EXIT /b 1
     ECHO "Copy %filename% from %cacheL2% to %l1file%"
 
-    IF NOT "%l3file%" == "" CALL :runThread %_ciutils% ^
-      doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" --insecure -x "" ^
+    SET _arg="%l3file%" -T "%l1file%" --insecure -x ""
+    IF NOT "%cacheL3_key%" == "" SET _arg=%_arg% "-u%cacheL3_key%" 
+    CALL :escPercent _arg
+    IF NOT "%l3file%" == "" CALL :runThread %_ciutils% doCurl %_arg% ^
       && ECHO Save %filename% into %l3file%
 
     ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
@@ -686,11 +706,15 @@ REM
   IF "%l3file%"=="" GOTO :_download_SkipL3
     SET l3file=%cacheL3%/%outFile%
     REM Check is the file exist on server
-    CALL :doCurl "%l3file%" -o nul --silent --fail -r 0-0 -m 2 --insecure -x ""
+    SET _arg="%l3file%" -o nul --silent --fail -r 0-0 -m 2 --insecure -x ""
+    CALL :escPercent _arg
+    CALL :doCurl %_arg%
     IF ERRORLEVEL 1 GOTO :_download_SkipL3
 
     REM Try to download from cacheL3
-    CALL :doCurl "%l3file%" -o "%l1file%.dl" --fail --insecure -x ""
+    SET _arg="%l3file%" -o "%l1file%.dl" --fail --insecure -x ""
+    CALL :escPercent _arg
+    CALL :doCurl %_arg%
     %curl_opts%
     IF ERRORLEVEL 1 GOTO :_download_SkipL3
     MOVE /Y "%l1file%.dl" "%l1file%" >/NUL ^
@@ -704,8 +728,9 @@ REM
   :_download_SkipL3
 
   REM Try to download the file
-  CALL :doCurl "%url%" -o "%l1file%.dl" ^
-    --fail --insecure --location %curl_opts%
+  SET _arg="%url%" -o "%l1file%.dl" --fail --insecure --location %curl_opts%
+  CALL :escPercent _arg
+  CALL :doCurl %_arg%
   IF ERRORLEVEL 1 ENDLOCAL && SET "_ret=" && EXIT /b %ERRORLEVEL%
   MOVE /Y "%l1file%.dl" "%l1file%" >/NUL ^
     || ENDLOCAL && SET "_ret=" && EXIT /b 1
@@ -714,8 +739,11 @@ REM
   REM Update cache L2 & L3
   IF NOT "%l2file%" == "" COPY /Y "%l1file%" "%l2file%" >/NUL 2>&1 ^
     && ECHO Save %filename% into %l2file%
-  IF NOT "%l3file%" == "" CALL :runThread %_ciutils% ^
-    doCurl "%l3file%" -T "%l1file%" "-u%cacheL3_key%" --insecure -x "" ^
+
+  SET _arg="%l3file%" -T "%l1file%" --insecure -x ""
+  IF NOT "%cacheL3_key%" == "" SET _arg=%_arg% "-u%cacheL3_key%" 
+  CALL :escPercent _arg
+  IF NOT "%l3file%" == "" CALL :runThread %_ciutils% doCurl %_arg% ^
     && ECHO Save %filename% into %l3file%
 
 ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
@@ -840,8 +868,10 @@ REM
     SHIFT
 
     REM Try to download the file
-    CALL :doCurl "%url%" -o "%dl%" ^
+    SET _arg="%url%" -o "%dl%" ^
       --fail --insecure --location --silent %curl_opts%
+    CALL :escPercent _arg
+    CALL :doCurl %_arg%
     IF NOT ERRORLEVEL 1 (
       MOVE /Y "%dl%" "%localFile%" >/NUL
       IF NOT ERRORLEVEL 1 (
@@ -886,7 +916,9 @@ REM
   MKDIR "%cacheL1%" 2>/NUL
 
   SET ci_proxy=
-  CALL :updateFile "%cacheL1%\.envVars" %*
+  SET _arg=%*
+  CALL :escPercent _arg
+  CALL :updateFile "%cacheL1%\.envVars" %_arg%
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
   REM Remove special characters "\\"
@@ -1083,7 +1115,9 @@ REM
     IF "%GIT_INST_URL%"=="" ECHO ERROR: GIT.EXE not found && EXIT /b 1
 
     MKDIR "%SystemDrive%\Develop" 2>/NUL
+    CALL :escPercent GIT_INST_URL
     ( REM ENSURE ONE GIT INSTALLATION RUN AT ONCE GIVEN TIME
+      REM NOTE: GIT_INST_URL also include install flags DONOT quote it.
       ECHO Installing GIT from %GIT_INST_URL%...
       CALL :runUrl %GIT_INST_URL% ^
       || ECHO ERROR: GIT Installation FAILED && EXIT /b 1
@@ -1353,7 +1387,7 @@ REM @note This function may ask for user name, and password. To avoid that,
 REM run "net use %1 /USER:username password" before call this function. Or
 REM specify %2, and %3 parameters.
 REM
-REM @note 
+REM @note
 REM * PUSHD command also do the network map automatically
 REM * This command use batch command: findstr, net
 REM
