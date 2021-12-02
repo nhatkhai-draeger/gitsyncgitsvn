@@ -24,8 +24,6 @@ pipeline
     LOCALAPPDATA= pwd( tmp: true )
     TMP         = pwd( tmp: true )
     TEMP        = pwd( tmp: true )
-
-    PATH        = "$ProgramFiles\\Git LFS;$PATH"
   }
 
   stages
@@ -37,29 +35,17 @@ pipeline
       writeFile file:CIUTILS, text:readTrusted(CIUTILS).replace('\n','\r\n')
       retry(7) { sleep(binding.variables.putIfAbsent('delay', 20)?:0)
         bat "$CIUTILS gitFetchCache" }
-      script { readProperties(file: ".ret").each { k, v -> env[k]=v } }
+      script { readProperties(file: ".ret").each { k, v -> env[k]=v } 
+        env.PATH = "$env.GIT_INST_DEF;$env.PATH"
+      }
 
       checkout scm: scm
     } /*steps*/ } /*stage*/
 
-    stage("setup") { steps
-    {
-      // Install cygwin
-      bat """$CIUTILS getCygPkg https://cygwin.com/setup-x86_64.exe \
-        git git-svn subversion sed gawk bash"""
-
-      // Install Git LFS to work with git Cygwin if not found
-      bat """IF NOT EXIST "$ProgramFiles\\Git LFS\\git-lfs.exe" \
-        $CIUTILS runUrl \
-          https://github.com/git-lfs/git-lfs/releases/download/v2.13.3/git-lfs-windows-v2.13.3.exe\
-          /VERYSILENT
-      """
-    } /*steps*/ } /*stage*/
-
     stage("main") { parallel
     {
-      stage("syntax") { steps { bat "$CIUTILS runBash ./cijobs.sh syntax" } }
-      stage("test"  ) { steps { bat "$CIUTILS runBash ./cijobs.sh test"   } }
+      stage("syntax") { steps { bat "bash ./cijobs.sh . syntax" } }
+      stage("test"  ) { steps { bat "bash ./cijobs.sh . test"   } }
     } /*parallel*/ } /*stage*/
   }
 
