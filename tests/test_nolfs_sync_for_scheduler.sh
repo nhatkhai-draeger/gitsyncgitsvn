@@ -6,7 +6,7 @@ TEST "SYNC_FOR_SCHEDULER script"
 
 INFO "# Inject some change from git repos"
 pushd git_test/proj1_local
-git pull
+git pull --no-rebase
 echo "test sync for scheduler1" > file2
 git commit -am "test sync for scheduler1"
 git push

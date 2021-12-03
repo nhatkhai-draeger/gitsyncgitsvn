@@ -6,10 +6,10 @@ TEST "SYNC A COMMIT CONTAINS SUBMODULE UPDATE"
 
 INFO "# Update submodule"
 pushd git_test/proj1_local
-git pull
+git pull --no-rebase
 pushd mod1
 echo "update1" > update1
-git pull
+git pull --no-rebase
 git add update1
 git commit -a -m "add update1 file"
 git push

@@ -38,7 +38,7 @@ INFO "# ${cmd[*]}"
 popd
 
 (cd svn_test/proj1; svn up .)
-(cd git_test/proj1_local; git pull)
+(cd git_test/proj1_local; git pull --no-rebase)
 pushd git_test/proj1
 WARN "MANUAL CHECK: git log below should show one merge commits on master"
 git log master svn/proj1 \

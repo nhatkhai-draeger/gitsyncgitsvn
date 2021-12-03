@@ -7,7 +7,7 @@ TEST "SYNC MULTIPLE COMMITS CONTAINS SUBMODULE"
 
 INFO "# Add submodule"
 pushd git_test/proj1_local
-git pull
+git pull --no-rebase
 git submodule add file://$curDir/git_repo/mod2.git mod2
 git commit -a -m "Add mod2"
 INFO "# Modify submodule"
