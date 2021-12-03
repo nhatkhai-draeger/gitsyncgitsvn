@@ -82,9 +82,10 @@ main ()
       echo 0 > "$tmp/maxScopeLvl"
       runTest "$test" 2>&1 | while IFS= read -r line; do
         if [[ ! -z $verbose ]]; then
-          if [[ "${line:0:1}" == "!" ]]; then
-            testCnt=${line:1:1}
-            line="${line:3}"
+          if [[ $line =~ ^![0-9]+"! "  ]]; then
+            testCnt=${line:1}
+            testCnt=${testCnt%%\! *}
+            line=${line#* }
             testname="`cat "$tmp/curTestName$testCnt"`"
           fi
           echo "$testname ${line//$'\r'/}"
@@ -170,10 +171,10 @@ runTest()
     set +e # Disable error propagation
     (
       if [[ ! -z $verbose ]]; then
-        ((testCnt=(testCnt+1)%10))
+        ((testCnt=testCnt+1))
         testname="               $test"
         printf "%s" [${testname: -15}] > "$tmp/curTestName$testCnt"
-        LOG_PREFIX[0]="!$testCnt"
+        LOG_PREFIX[0]="!$testCnt!"
       else
         LOG_PREFIX=("${LOG_PREFIX[@]:1}")
       fi
