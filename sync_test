@@ -68,6 +68,8 @@ main ()
   local passCnt=0
   local failCnt=0
   for test in "${tests[@]}"; do 
+    test=`normalTest "$test"`
+
     # Try to find the correct test script name from user style name
     if [[ ! -f "$scriptDir/tests/$test.sh" ]]; then
       test=`echo $test | sed -En "s/^(.*\/)?([^\]+)$/\1test_\2/p"`
@@ -76,9 +78,9 @@ main ()
     # Execute a specified test case
     (
       EXIT_CMDS=()
-      printf "EXECUTING $test..\r"
+      printf "EXECUTING %s..\r" $test
       echo 0 > "$tmp/maxScopeLvl"
-      runTest "$test" 2>&1 | while IFS= read line; do
+      runTest "$test" 2>&1 | while IFS= read -r line; do
         if [[ ! -z $verbose ]]; then
           if [[ "${line:0:1}" == "!" ]]; then
             testCnt=${line:1:1}
@@ -87,7 +89,7 @@ main ()
           fi
           echo "$testname ${line//$'\r'/}"
         fi
-        echo "$line" >> "$tmp/$test.log"
+        echo "${line//$'\r'/}" >> "$tmp/$test.log"
       done
       printf "\e[K" # Clear line from current cursor
     )
@@ -170,7 +172,7 @@ runTest()
       if [[ ! -z $verbose ]]; then
         ((testCnt=(testCnt+1)%10))
         testname="               $test"
-        printf "[${testname: -15}]" > "$tmp/curTestName$testCnt"
+        printf "%s" [${testname: -15}] > "$tmp/curTestName$testCnt"
         LOG_PREFIX[0]="!$testCnt"
       else
         LOG_PREFIX=("${LOG_PREFIX[@]:1}")
@@ -258,7 +260,7 @@ checkSetting()
 {
   if [[ ${#tests[*]} -eq 0 ]]; then 
     getAllTests > "$tmp/tests"
-    while read f; do
+    while read -r f; do
       tests+=("$f")
     done < "$tmp/tests"
   fi
@@ -323,8 +325,11 @@ Assert()
   local msg=''
   if [[ ! -z "$4" ]]; then msg=":: $4"; fi
 
+  expected=${1//\\/\\\\}
+  actual=${3//\\/\\\\}
+
   (exit $errCode) # Replace exit code
-  msg="[[`eval echo \"$1 $2 $3\"`]] $msg" \
+  msg="[[`eval echo \"$expected $2 $actual\"`]] $msg" \
     || (echo $1 $2 $3; echo `caller`; exit 1)
 
   (exit $errCode) # Replace exit code

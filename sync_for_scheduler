@@ -74,7 +74,7 @@ main()
     # Sync all repository folders in $gits
     INFO "Sync all repositories in $gits"
     ls "$gits" -1 > "$respoNames" || exit $?
-    while read f; do 
+    while IFS= read -r f; do 
       if [ -d "$gits/$f" ]; then repos+=("$f"); fi
     done < "$respoNames"
   fi
@@ -155,7 +155,7 @@ syncASvnFolder()
         "$sync" "${syncOps[@]}" || exit $?
         popd
       ) || echo $? > "$repoLogDir/errCode"
-    ) 2>&1 | while IFS= read line; do
+    ) 2>&1 | while IFS= read -r line; do
       echo "$line" >> "$repoLogDir/$logFile";
       if [ "$veb" == "yes" ]; then
         echo "$name ${line//$'\r'/}"
