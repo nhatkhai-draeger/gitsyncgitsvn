@@ -15,8 +15,9 @@ LOG_ERROR="ERROR"
   LOG_LINEMSG=''
 
 LOG_LEVEL=$LOG_LEVEL_DEBUG
-Assert "'`DBG "#1 THIS IS DEBUG Message"`'"   =~ \
-     '"] DEBUG #1 THIS IS DEBUG Message"'
+Assert "Hello\\Khai" == 'Hello\Khai'
+Assert "'`DBG "#1 THIS\\ IS DEBUG Message"`'"   =~ \
+     '"] DEBUG #1 THIS\ IS DEBUG Message"'
 Assert "'`INFO "#2 THIS IS INFO Message"`'"   =~ \
       '"]  INFO #2 THIS IS INFO Message"'
 Assert "'`NOTE "#3 THIS IS NOTE Message"`'"   =~ \
