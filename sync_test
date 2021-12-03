@@ -244,7 +244,7 @@ normalTest()
 setDefaultSettings()
 {
   curDir="`pwd`"
-  tmp="/tmp/`basename $BASH_SOURCE`_`date +%m%d%y_%H%M%S`_$BASHPID"
+  tmp="/tmp/`basename $BASH_SOURCE`_`date +%y%m%d_%H%M%S`_$BASHPID"
   mkdir -p "$tmp"
 
   tests=()

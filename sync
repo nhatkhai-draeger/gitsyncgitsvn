@@ -145,7 +145,7 @@ setDefaultSettings()
 {
   curDir="`pwd`"
   myDir="`dirname "$BASH_SOURCE"`"
-  tmp="/tmp/`basename $BASH_SOURCE`_`date +%m%d%y_%H%M%S`_$BASHPID"
+  tmp="/tmp/`basename $BASH_SOURCE`_`date +%y%m%d_%H%M%S`_$BASHPID"
   emailFile=$tmp/emails
   testdir="$HOME"
   local temp=`cygpath -m "$tmp"`
@@ -385,7 +385,7 @@ init_fetchNewSvnFolder()
     git update-ref -d "refs/original/refs/heads/$lfsBranch"
   fi
 
-  local backupBranch="backup/${gitBranch}_`date +%m%d%y_%H%M%S`"
+  local backupBranch="backup/${gitBranch}_`date +%y%m%d_%H%M%S`"
   retry 4 git branch -f "$backupBranch" "$gitBranch"
   if [ $? == 0 ]; then
     INFO "****** Backup $gitBranch branch to $backupBranch"

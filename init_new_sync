@@ -229,7 +229,7 @@ setDefaultSettings()
   sync="${scriptDir}/sync"
 
   # Set default temp folder
-  logFile="`basename "$BASH_SOURCE"`_`date +%m%d%y_%H%M%S`_$BASHPID.log"
+  logFile="`basename "$BASH_SOURCE"`_`date +%y%m%d_%H%M%S`_$BASHPID.log"
   logDir="/tmp"
 
   max_threads=5
