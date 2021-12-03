@@ -276,6 +276,7 @@ checkSettings()
 cleanUp()
 {
   if [[ -f "$emailFile" ]]; then
+    sort -u "$emailFile" -o "$emailFile"
     INFO      "Committers' email:"
     INFO_EVAL "cat \"${emailFile}\""
   fi
@@ -435,7 +436,7 @@ syncSVNtoGIT()
   exitIfErr 1 "Cannot create a temporary branch $tryLfsMerge"
 
   # Extract list of committers' email
-  git log --pretty=format:%ce $svnSHA1..$svnNewSHA1 | sort -u >> "${emailFile}"
+  (git log --pretty=format:%ce $svnSHA1..$svnNewSHA1; echo) >> "${emailFile}"
 
   if [[ ! -z "$lfsFilter" ]]; then
     INFO "** Apply LFS setting on new SVN commits on $svnRemote"
@@ -585,8 +586,8 @@ adjGitBranch()
   INFO "$mergeBaseSHA1 is common ancestor of $gitBranch and $lfsBranch"
 
   # Extract list of committers' email
-  git log --pretty=format:%ce $mergeBaseSHA1.."$gitBranch" >> "${emailFile}"
-  git log --pretty=format:%ce $mergeBaseSHA1.."$lfsBranch" >> "${emailFile}"
+  (git log --pretty=format:%ce $mergeBaseSHA1.."$gitBranch"; echo) >> "${emailFile}"
+  (git log --pretty=format:%ce $mergeBaseSHA1.."$lfsBranch"; echo) >> "${emailFile}"
 
   if [ $lfsSHA == $mergeBaseSHA1 ]; then
     #      -- <--lfsBranch
