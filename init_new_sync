@@ -186,7 +186,7 @@ work_on()
         exitIfErr 1 "Cannot create folder $git_dirname"
 
         INFO "# Make initial local repos"
-        git init
+        git init -b master
         cp "${gitDOT}/.git"* .
         exitIfErr 1 "Cannot copy .git* files from $gitDOT"
 
