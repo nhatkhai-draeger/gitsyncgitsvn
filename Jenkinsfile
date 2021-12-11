@@ -36,7 +36,7 @@ pipeline
       retry(7) { sleep(binding.variables.putIfAbsent('delay', 20)?:0)
         bat "$CIUTILS gitFetchCache" }
       script { readProperties(file: ".ret").each { k, v -> env[k]=v } 
-        env.PATH = "$env.GIT_INST_DEF;$env.PATH"
+        // env.PATH = "$env.GIT_INST_DEF;$env.PATH"
       }
 
       checkout scm: scm
@@ -44,8 +44,8 @@ pipeline
 
     stage("main") { parallel
     {
-      stage("syntax") { steps { bat "bash ./cijobs.sh . syntax" } }
-      stage("test"  ) { steps { bat "bash ./cijobs.sh . test"   } }
+      stage("syntax") { steps { bat "$CIUTILS runBash ./cijobs.sh . syntax" } }
+      stage("test"  ) { steps { bat "$CIUTILS runBash ./cijobs.sh . test"   } }
     } /*parallel*/ } /*stage*/
   }
 
