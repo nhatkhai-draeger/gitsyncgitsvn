@@ -13,7 +13,7 @@ git push
 popd
 
 echo "/tmp/sync_for_scheduler_{0,1}*" >> clean_list
-cmd=($scriptDir/sync_for_scheduler "${jenkinsParam[@]}" -d proj1)
+cmd=($scriptDir/sync_for_scheduler $flockMode "${jenkinsParam[@]}" -d proj1)
 INFO "# ${cmd[*]}"
 "${cmd[@]}" "${syncParam[@]}"
 

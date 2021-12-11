@@ -6,7 +6,7 @@ TEST "SYNC COMMITS PROJ2 FROM GIT (LFS)"
 
 INFO "# Inject some change from git repos"
 echo git_test/proj2_local >> clean_list
-git clone -n file://$curDir/git_repo/proj2.git git_test/proj2_local
+git clone -n $gitUrl/git_repo/proj2.git git_test/proj2_local
 pushd git_test/proj2_local
 git lfs install --local
 git checkout master

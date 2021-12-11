@@ -1,18 +1,24 @@
+#!/bin/bash
 INFO "# Crate repos"
 
 INFO "## Create empty svn repo"
 echo svn_repo >> clean_list
 svnadmin create svn_repo
+pushd svn_repo/conf
+echo "[general]"            >> svnserve.conf
+echo "password-db = passwd" >> svnserve.conf
+echo "`whoami` = a" >> passwd
+popd
 
 INFO "## Create proj1 in SVN with some commits"
 echo svn_test >> clean_list
-svn co file://$curDir/svn_repo svn_test
+svn co $svnUrl/svn_repo svn_test
 pushd svn_test
 
 mkdir proj1
 echo "test" > proj1/file1
 svn add proj1
-svn commit -m "1st"
+"${svnCommit[@]}" -m "1st"
 popd
 
 INFO "## Create proj2 in SVN with some commits"
@@ -21,7 +27,7 @@ mkdir proj2
 echo "proj2 file1" > proj2/file1.dat
 echo "proj2 file1" > proj2/file1
 svn add proj2
-svn commit -m "1st project2"
+"${svnCommit[@]}" -m "1st project2"
 svn up .
 popd
 
@@ -31,7 +37,7 @@ mkdir "proj a b"
 echo "proj a b file1" > "proj a b/file1.dat"
 echo "proj a b file1" > "proj a b/file1"
 svn add "proj a b"
-svn commit -m "1st proj a b"
+"${svnCommit[@]}" -m "1st proj a b"
 svn up .
 popd
 

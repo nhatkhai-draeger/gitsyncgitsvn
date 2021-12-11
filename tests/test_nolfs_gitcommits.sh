@@ -6,7 +6,7 @@ TEST "SYNC COMMITS PROJ1 FROM GIT"
 
 INFO "# Inject some change from git repos"
 echo git_test/proj1_local >> clean_list
-git clone file://$curDir/git_repo/proj1.git git_test/proj1_local
+git clone $gitUrl/git_repo/proj1.git git_test/proj1_local
 pushd git_test/proj1_local
 echo "test2" > file2
 git add file2

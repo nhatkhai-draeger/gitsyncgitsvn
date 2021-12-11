@@ -10,7 +10,7 @@ svn up .
 echo "test2" > file3
 printf "\01\02\03" > newBinFile2
 svn add file3 newBinFile2
-svn commit -m "LFS with unexpected binary file"
+"${svnCommit[@]}" -m "LFS with unexpected binary file"
 popd
 
 echo "/tmp/sync_{0,1}*" >> clean_list

@@ -1,3 +1,4 @@
+#!/bin/bash
 NOTE "# Clean current directory"
 if [[ -f clean_list ]]; then
   sort -u clean_list | while read f; do

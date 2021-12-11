@@ -27,7 +27,7 @@ EOF
 pushd svn_test/proj1
 echo "nolfs_gitchange svn1" > nolfs_gitchange_svn1
 svn add nolfs_gitchange_svn1
-svn commit -m "nolfs_gitchange svn1"
+"${svnCommit[@]}" -m "nolfs_gitchange svn1"
 popd
 
 echo "/tmp/sync_{0,1}*" >> clean_list

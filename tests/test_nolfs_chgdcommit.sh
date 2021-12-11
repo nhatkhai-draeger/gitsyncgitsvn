@@ -18,7 +18,7 @@ cat > $HOME/.SYNC_TEST_SVN_CHANGE_WHILE_DCOMMIT <<EOF
 pushd ../../svn_test/proj1
 echo "nolfs_chgdcommit svn2" > nolfs_chgdcommit_svn2
 svn add nolfs_chgdcommit_svn2
-svn commit -m "nolfs_chgdcommit svn2"
+${svnCommit[@]} -m "nolfs_chgdcommit svn2"
 popd
 rm $HOME/.SYNC_TEST_SVN_CHANGE_WHILE_DCOMMIT
 EOF
@@ -26,7 +26,7 @@ EOF
 pushd svn_test/proj1
 echo "nolfs_chgdcommit svn1" > nolfs_chgdcommit_svn1
 svn add nolfs_chgdcommit_svn1
-svn commit -m "nolfs_chgdcommit svn1"
+"${svnCommit[@]}" -m "nolfs_chgdcommit svn1"
 popd
 
 echo "/tmp/sync_{0,1}*" >> clean_list

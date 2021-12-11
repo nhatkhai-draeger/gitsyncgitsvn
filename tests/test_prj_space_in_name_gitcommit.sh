@@ -6,7 +6,7 @@ TEST "SYNC COMMITS PROJ A B FROM GIT & SVN REPOS URL MOVED"
 
 INFO "# Inject some change from git repos"
 echo git_test/projab_local >> clean_list
-git clone -n file://$curDir/git_repo/projab.git git_test/projab_local
+git clone -n $gitUrl/git_repo/projab.git git_test/projab_local
 pushd git_test/projab_local
 git lfs install --local
 git checkout master
@@ -23,14 +23,14 @@ cp -rf svn_repo svn_rewrite_repo
 echo "/tmp/sync_{0,1}*" >> clean_list
 pushd git_test/projab
 cmd=($scriptDir/sync "${syncParam[@]}")
-cmd+=(--svnUrl "file://$curDir/svn_rewrite_repo")
+cmd+=(--svnUrl "$svnUrl/svn_rewrite_repo")
 INFO "# ${cmd[*]}"
 "${cmd[@]}" 
 popd
 
 INFO "# Checkout new svn URL to svn_test_rewrite"
 echo svn_test_rewrite >> clean_list
-svn co file://$curDir/svn_rewrite_repo svn_test_rewrite
+svn co $svnUrl/svn_rewrite_repo svn_test_rewrite
 
 pushd git_test/projab
 git lfs install --local

@@ -19,7 +19,7 @@ cat > $HOME/.SYNC_TEST_SVN_CHANGE <<EOF
 pushd ../../svn_test/proj1
 echo "nolfs_svnchange svn2" > nolfs_svnchange_svn2
 svn add nolfs_svnchange_svn2
-svn commit -m "nolfs_svnchange svn2"
+${svnCommit[@]} -m "nolfs_svnchange svn2"
 popd
 rm $HOME/.SYNC_TEST_SVN_CHANGE
 EOF
@@ -27,7 +27,7 @@ EOF
 pushd svn_test/proj1
 echo "nolfs_svnchange svn1" > nolfs_svnchange_svn1
 svn add nolfs_svnchange_svn1
-svn commit -m "nolfs_svnchange svn1"
+"${svnCommit[@]}" -m "nolfs_svnchange svn1"
 popd
 
 echo "/tmp/sync_{0,1}*" >> clean_list
