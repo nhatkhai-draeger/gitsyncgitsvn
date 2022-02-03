@@ -40,7 +40,7 @@
   CALL :escPercent _arg
   IF NOT "%CIUTILS_TRACE%"=="" IF NOT "%~1"=="traceCmd" (
     SET "_traceFile=%~0" && CALL :traceCmd %_arg%
-    EXIT /b %ERRORLEVEL%
+    GOTO :EOF
   )
 
   IF "%~1" == ""       GOTO :_help
@@ -104,7 +104,7 @@ REM
 :runBash
   SET _ret=
   SETLOCAL EnableDelayedExpansion
-  IF NOT "%DEF_ENV_URL%"=="" CALL :setEnvUrl "%DEF_ENV_URL%" 1>&2 || EXIT /b 1
+  IF NOT "%DEF_ENV_URL%"=="" CALL :setEnvUrl "%DEF_ENV_URL%" 1>&2 || GOTO :EOF
 
   IF NOT EXIST "%BASH_CMD%" SET BASH_CMD=C:\cygwin\bin\bash.exe
   IF NOT EXIST "%BASH_CMD%" SET BASH_CMD=C:\cygwin64\bin\bash.exe
@@ -120,6 +120,7 @@ REM
     EXIT /b 1
   )
   IF "%TMPDIR%"=="" SET TMPDIR=%TMP%
+  IF NOT EXIST "%TMPDIR%" MKDIR "%TMPDIR%" 2>/NUL
   "%BASH_CMD%" -l -c ^
     '[[ "$TMPDIR" ]] ^&^& export TEMP="$TMPDIR"; ^
      export TMP="$TEMP"; ^
@@ -167,12 +168,12 @@ REM
     SHIFT
   IF NOT "%~1"=="" GOTO :runMsiUrlArgLoop
 
-  SET url=%~0
-  IF "%url%"=="" EXIT /b 1
+  SET _arg_url="%~0"
+  IF %_arg_url%=="" EXIT /b 1
 
   REM Try to download and run installer
-  CALL :escPercent url
-  CALL :download "%url%"
+  CALL :escPercent _arg_url
+  CALL :download %_arg_url%
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
   SET "msiSetup=%_ret%"
 
@@ -214,24 +215,24 @@ REM @test CALL :runUrl https://github.com/git-for-windows/git/releases/download/
 REM
 :runUrl
   SETLOCAL
-  SET url=%~1
+  SET _arg_url="%~1"
   SET opts=
   :_runUrl_OptsLoop
     SHIFT
     IF NOT "%~1"=="" SET opts=%opts% %1 && GOTO :_runUrl_OptsLoop
 
-  IF "%url%"=="" EXIT /b 1
+  IF %_arg_url%=="" EXIT /b 1
 
   REM Try to download and run installer
-  CALL :escPercent url
-  CALL :download "%url%"
+  CALL :escPercent _arg_url
+  CALL :download %_arg_url%
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
   FOR %%a IN ("%_ret%") DO SET "cmdPath=%%~dpsa" ^
                         && SET "cmdFile=%%~nxa" ^
                         && SET "cmdLong=%%~dfa" ^
                         && SET "cmdExt=%%~xa"
   ECHO %cmdLong% %opts%
-  PUSHD "%cmdPath%" || EXIT /b 1
+  PUSHD "%cmdPath%" || GOTO :EOF
   IF "%cmdExt%"=="" SET cmdExt=.
   SET PATHEXT=%PATHEXT%;%cmdExt%
   START /WAIT "" "%cmdFile%" %opts%
@@ -281,13 +282,53 @@ REM
 EXIT /b 0
 
 
+@REM   runCmdOnce    COMMANDS [OPTIONS...]
+REM FN runCmdOnce: Try the command once, and create a mark to avoid run
+REM again next time calling
+REM
+REM @param %1   Specify function
+REM @param %2.. (Optional) Function arguments
+REM
+REM @param %InstIdsPath% (Optional) Local file path for tracking which
+REM         location to store the mark file.
+REM
+REM @exception exit with specified function error code if error occurred
+REM
+REM @note This command use certutil
+REM
+REM
+:runCmdOnce
+  SETLOCAL
+  CALL :_getPID
+  DEL /F .%PID%.runCmdOnce 2>/NUL
+  :_runCmdOnce_loop
+    (ECHO %~1)>> .%PID%.runCmdOnce
+    SHIFT
+    IF NOT "%~1"=="" GOTO :_runCmdOnce_loop
+
+  IF "%InstIdsPath%"=="" SET InstIdsPath=C:
+  FOR /F "tokens=1,*" %%a IN ('certutil -hashfile .%PID%.runCmdOnce MD5'
+  ) DO (
+    IF "%%b"=="" SET md5=%InstIdsPath%\.runCmdOnce.%%a
+  )
+  DEL /F .%PID%.runCmdOnce 2>/NUL
+  IF EXIST "%md5%" EXIT /b 0
+
+  %*
+  IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+
+  (ECHO.)> "%md5%"
+EXIT /b 0
+
+
 @REM
 @REM   getVsPkg   Install Visual Studio Packages
 REM FN getVsPkg:  Install Visual Studio Package
 REM
 REM @param %1     Installer URL
 REM @param %2..n  (optional) Specify a set of component IDs or packages to
-REM               be install
+REM               be install. Reference for all available was listed here:
+REM               https://docs.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-community
 REM @param %n..   (optional) installer options
 REM
 REM @param %vsLayout%      (optional) specific share folder for installer
@@ -319,7 +360,11 @@ REM @return %_ret% array of installed packages. Otherwise, nothing had been
 REM           added/installed
 REM @return %_retVsID% a MD5 id base on the Installer URL
 REM
-REM @exception error code for failure of installation
+REM @exception error code for failure of installation. Exit Code are
+REM     defined here https://docs.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022#error-codes
+REM
+REM     Follow error of 1641, 3010 from vs_setup will convert to error code
+REM     of 0.
 REM
 REM @note
 REM   #  Know work for 2017, 2019 version
@@ -339,17 +384,19 @@ REM
   SETLOCAL
   CALL :_getPID
   IF "%cacheL1%" == "" FOR %%a IN ("%TMP%") DO SET cacheL1=%%~sa\.cache
+  IF NOT EXIST "%cacheL1%" MKDIR "%cacheL1%"
 
   REM Process function parameters
-  SET "vsInstallerURL=%~1"
+  SET _arg_vsInstallerURL="%~1"
+  SET "_ech_vsInstallerURL=%~1"
   SHIFT
 
   REM Calculate MD5 from URL
-  SET "_tmp=%vsInstallerURL%"
-  CALL :escapeVar _tmp
-  (ECHO %_tmp%)>.%PID%.getVsPkg
+  CALL :escapeVar _ech_vsInstallerURL
+  (ECHO %_ech_vsInstallerURL%)>.%PID%.getVsPkg
   FOR /F "tokens=1,*" %%a IN ('certutil -hashfile .%PID%.getVsPkg MD5'
                              ) DO IF "%%b"=="" SET md5=%%a
+  DEL /F .%PID%.getVsPkg 2>/NUL
   SET _retVsID=%md5:~0,10%
 
   REM Fill in optional parameters using MD5 of the installer URL
@@ -364,8 +411,9 @@ REM
 
   SET vsPkgs=
   SET vsOpts=
-  SET _tmpFile=%TMP%\vs.ids.%PID%
+  SET _tmpFile=%CD%\.vs.ids.%PID%
   DEL /F "%_tmpFile%" 2>/NUL
+  (ECHO DEL /F "%_tmpFile%" 2^>/NUL) >> .cleanup.cmd
   COPY /Y "%vsInstIdsPath%" "%_tmpFile%" >/NUL
   :_getVsPkg_parsePkg
     IF _%1==_ GOTO :_getVsPkg_parseArgDone
@@ -409,7 +457,8 @@ REM
       SET _lst2=!_lst1!
       SET _lst1=%%a
     )
-  ) > "%_tmpFile%"
+  ) 1> "%_tmpFile%"
+  DEL /F "%_tmpFile%.tmp" 2>/NUL
 
   REM No thing needed to be installed
   IF "%_delta%"=="" EXIT /b 0
@@ -424,8 +473,8 @@ REM
   SET vsInstaller=%vsLayout%\vs_setup.exe
   IF EXIST "%vsInstaller%" GOTO :_getVsPkg_skip_layout
     ECHO Creating Visual Studio Layout...
-    CALL :escPercent vsInstallerURL
-    CALL :download "%vsInstallerURL%" "/vs_.*\.exe" >/NUL
+    CALL :escPercent _arg_vsInstallerURL
+    CALL :download %_arg_vsInstallerURL% "/vs_.*\.exe" >/NUL
     IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
     FOR %%a IN ("%_ret%") DO IF NOT "%%~xa"==".exe" (
       COPY /Y "%_ret%" "%_ret%.exe" >/NUL
@@ -442,18 +491,35 @@ REM
     IF NOT EXIST "%vsInstaller%" SET vsInstaller=%_ret%
   :_getVsPkg_skip_layout
 
+  REM Update visual studio to ensure its current installed version is
+  REM compatible with current layout for add addition components
+  IF NOT EXIST "%vsInstIdsPath%" GOTO :_getVsPkg_skip_update
+    ECHO Update Visual Studio...
+    "%vsInstaller%" update --wait --quiet --norestart
+    IF ERRORLEVEL 1 ECHO   Return Code: %ERRORLEVEL%
+  :_getVsPkg_skip_update
+
   ECHO Installing Visual Studio...
+  DEL /F "%TMP%\dd_installer_*" 2>/NUL
   IF "%vsOpts%"=="" SET vsOpts=--norestart
   SET vscmd="%vsInstaller%" --wait --quiet %vsPkgs% %vsOpts%
   ECHO   %vscmd%
   START /WAIT "" %vscmd%
-  IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
+  IF ERRORLEVEL 1 ECHO   Return Code: %ERRORLEVEL%
 
+  REM Ignore some of errors
+  REM 3010, 1641 - system need to restart or restarting
+  IF %ERRORLEVEL% EQU 1641 GOTO :_getVsPkg_done
+  IF %ERRORLEVEL% EQU 3010 GOTO :_getVsPkg_done
+  IF ERRORLEVEL 1 TYPE "%TMP%\dd_installer_*" && EXIT /b %ERRORLEVEL%
+
+  :_getVsPkg_done
   REM Update installed component IDs
   SET _ret=%_delta%
   COPY /Y "%_tmpFile%" "%vsInstIdsPath%" >/NUL
+  DEL /F "%_tmpFile%" 2>/NUL
 
-  ENDLOCAL && SET "_ret=%_delta%" && SET "_retVsID=%_retVsID%"
+  ENDLOCAL && SET _ret=%_delta% && SET "_retVsID=%_retVsID%"
 EXIT /b 0
 
 
@@ -461,8 +527,9 @@ EXIT /b 0
 REM FN getCygPkg: Install cygwin and specified packages not needed
 REM
 REM @param %1    cygwin executable setup URL. When empty string, the
-REM         default hard coded cygwin URL will be use
-REM @param %2.. (optional) list of cygwin packages
+REM         default hard coded cygwin URL will be use.
+REM @param %2.. (optional) list of cygwin packages. The list was found here:
+REM         https://cygwin.com/packages/package_list.html
 REM
 REM @param %cyg_mirror%   (optional) point to cygwin mirror URL
 REM @param %cyg_cache%    (optional) point to share folder cygwin
@@ -532,18 +599,18 @@ REM
     GOTO :getCygPkgArgModsLoop
   :getCygPkgArgModsLoopDone
 
-  SET url=%~1
-  IF "%url%" == "" (
+  SET _arg_url="%~1"
+  IF %_arg_url% == "" (
     IF "%PROCESSOR_ARCHITECTURE%" == "x86" (
-      SET url=https://cygwin.com/setup-x86.exe
+      SET _arg_url="https://cygwin.com/setup-x86.exe"
     ) ELSE (
-      SET url=https://cygwin.com/setup-x86_64.exe
+      SET _arg_url="https://cygwin.com/setup-x86_64.exe"
     )
   )
 
   REM Try to download and run installer
-  CALL :escPercent url
-  CALL :download "%url%"
+  CALL :escPercent _arg_url
+  CALL :download %_arg_url%
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
   FOR %%a IN ("%_ret%") DO SET cygSetup=%%~dpsa\%%~nxa
   SET opts=--quiet-mode --no-desktop --no-shortcuts --no-startmenu --only-site
@@ -690,7 +757,7 @@ REM
     IF NOT EXIST "%l2file%" GOTO :_download_SkipL2
 
     COPY /Y "%l2file%" "%l1file%" >/NUL 2>&1 ^
-      || ENDLOCAL && SET "_ret=" && EXIT /b 1
+      || ENDLOCAL && SET "_ret=" && GOTO :EOF
     ECHO "Copy %filename% from %cacheL2% to %l1file%"
 
     SET _arg="%l3file%" -T "%l1file%" --insecure -x ""
@@ -718,7 +785,7 @@ REM
     %curl_opts%
     IF ERRORLEVEL 1 GOTO :_download_SkipL3
     MOVE /Y "%l1file%.dl" "%l1file%" >/NUL ^
-      || ENDLOCAL && SET "_ret=" && EXIT /b 1
+      || ENDLOCAL && SET "_ret=" && GOTO :EOF
     ECHO Download %filename% from %cacheL3% to %l1file%
 
     REM Update cache L2
@@ -733,7 +800,7 @@ REM
   CALL :doCurl %_arg%
   IF ERRORLEVEL 1 ENDLOCAL && SET "_ret=" && EXIT /b %ERRORLEVEL%
   MOVE /Y "%l1file%.dl" "%l1file%" >/NUL ^
-    || ENDLOCAL && SET "_ret=" && EXIT /b 1
+    || ENDLOCAL && SET "_ret=" && GOTO :EOF
   ECHO Download %filename% to %l1file%
 
   REM Update cache L2 & L3
@@ -779,6 +846,7 @@ REM
   IF "%CURL%"=="" FOR %%a IN (curl.exe) DO SET CURL=%%~$PATH:a
   IF "%CURL%"=="" IF NOT "%curl_cab%"=="" (
     IF "%cacheL1%" == "" FOR %%a IN ("%TMP%") DO SET cacheL1=%%~sa\.cache
+    IF NOT EXIST "%cacheL1%" MKDIR "%cacheL1%"
 
     SET CURL=!cacheL1!/curl/I386/curl.exe
     IF NOT EXIST "!CURL!" (
@@ -913,7 +981,7 @@ REM
 
   REM Download into a .envVars file
   IF "%cacheL1%" == "" FOR %%a IN ("%TMP%") DO SET cacheL1=%%~sa\.cache
-  MKDIR "%cacheL1%" 2>/NUL
+  IF NOT EXIST "%cacheL1%" MKDIR "%cacheL1%"
 
   SET ci_proxy=
   SET _arg=%*
@@ -922,13 +990,13 @@ REM
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
   REM Remove special characters "\\"
-  PUSHD "%cacheL1%" || EXIT /b 1
+  PUSHD "%cacheL1%" || GOTO :EOF
   DEL /F .envVars.%PID%.tmp 2>/NUL
   FOR /F "tokens=1,* delims== " %%a IN (.envVars) DO (
     SET val=%%b
     IF NOT "!val!"=="" SET "val=!val:\\=\!"
     IF NOT "%%~a"=="INFO" IF NOT "%%~a"=="NOTE" ECHO %%a=!val!
-  )>>.envVars.%PID%.tmp || POPD && EXIT /b 1
+  ) 1>>.envVars.%PID%.tmp || POPD && EXIT /b 1
   POPD
 
   REM Pares and set them
@@ -971,7 +1039,7 @@ REM
     ECHO CALL %_ciutils% escapeVar val
     ECHO IF "%%val%%"=="" (EXIT /b 1^) ELSE ECHO %%name%% = %%val%%
     ENDLOCAL
-  ) > .tmp.cmd
+  ) 1> .tmp.cmd
 
   :_showEnv_loop
     SHIFT
@@ -1013,7 +1081,7 @@ REM
     IF "%name:~0,2%"=="--" (
       SET cfg_flag= %1
     ) ELSE (
-      %cfg_cmd%%cfg_flag% %1 %2
+      %cfg_cmd%%cfg_flag% %1 %2 || GOTO :EOF
       SHIFT
     )
     SHIFT
@@ -1100,7 +1168,10 @@ REM
 
   REM Auto load environment from DEF_ENV_URL
   IF "%cacheL1%" == "" FOR %%a IN ("%TMP%") DO SET cacheL1=%%~sa\.cache
-  IF NOT "%DEF_ENV_URL%"=="" CALL :setEnvUrl "%DEF_ENV_URL%" || EXIT /b 1
+  IF NOT "%DEF_ENV_URL%"=="" CALL :setEnvUrl "%DEF_ENV_URL%" || GOTO :EOF
+  IF NOT EXIST "%cacheL1%" MKDIR "%cacheL1%"
+
+  MKDIR "%SystemDrive%\Develop" 2>/NUL
 
   REM Auto install Git if not exist using the GIT_INST_URL,
   REM GIT_INST_DEF, then restart the machine
@@ -1114,13 +1185,13 @@ REM
 
     IF "%GIT_INST_URL%"=="" ECHO ERROR: GIT.EXE not found && EXIT /b 1
 
-    MKDIR "%SystemDrive%\Develop" 2>/NUL
-    CALL :escPercent GIT_INST_URL
+    SET _arg="%GIT_INST_URL%"
+    CALL :escPercent _arg
     ( REM ENSURE ONE GIT INSTALLATION RUN AT ONCE GIVEN TIME
       REM NOTE: GIT_INST_URL also include install flags DONOT quote it.
       ECHO Installing GIT from %GIT_INST_URL%...
-      CALL :runUrl %GIT_INST_URL% ^
-      || ECHO ERROR: GIT Installation FAILED && EXIT /b 1
+      CALL :runUrl %_arg% ^
+      || ECHO ERROR: GIT Installation FAILED && GOTO :EOF
 
       ECHO THERE MIGHT BE A LOT OF ERRORS UNTIL MACHINE REBOOT COMPLETED
       SHUTDOWN /r /t 2
@@ -1130,8 +1201,13 @@ REM
     DEL /F "%SystemDrive%\Develop\INSTALL.LOCK" 2>/NUL
   :_gitFetchCache_GitCmd
 
+  :_gitFetchCache_GitCfg
   REM Auto apply git config from GIT_CONFIGS
-  CALL :applyCfg "%GIT_CMD% config" %GIT_CONFIGS%
+  ( REM ENSURE ONE GIT CONFIG RUN AT ONCE GIVEN TIME
+    CALL :applyCfg "%GIT_CMD% config" %GIT_CONFIGS%
+  ) 9>"%SystemDrive%\Develop\gitconfig.LOCK" || 1>/NUL ping -n 2 "::1" ^
+  && GOTO :_gitFetchCache_GitCfg
+  DEL /F "%SystemDrive%\Develop\gitconfig.LOCK" 2>/NUL
 
   REM Delete files specified in DEL_DOTGIT_FILES in .git folder
   FOR /R ".git" %%a IN (%DEL_DOTGIT_FILES%) DO (
@@ -1301,14 +1377,16 @@ REM folder Is also return the actual git repos URL into srcRepo variable
         ( ECHO "!modName!"
           ECHO "!modBranch!"
           ECHO "!modUrl!"
-          ECHO /) >> .tmp.gitFetchCache.args
+          ECHO /) 1>> .tmp.gitFetchCache.args
       )
+      DEL /F .tmp.gitFetchCache.mod .tmp.gitFetchCache.name
     )
 
     REM Save data into a local variable avoid conflict with recursive call
     REM to _gitFetchCache_Inner
     SET myArgs=
     FOR /F "delims=" %%a IN (.tmp.gitFetchCache.args) DO SET myArgs=!myArgs!"%%~a"
+    DEL /F .tmp.gitFetchCache.args
 
     REM Call gitFetchCache for all submodule recursively
     SET "indent=%indent%    "
@@ -1387,7 +1465,7 @@ REM @note This function may ask for user name, and password. To avoid that,
 REM run "net use %1 /USER:username password" before call this function. Or
 REM specify %2, and %3 parameters.
 REM
-REM @note
+REM @note 
 REM * PUSHD command also do the network map automatically
 REM * This command use batch command: findstr, net
 REM
@@ -1500,6 +1578,7 @@ REM
 
   SETLOCAL && SET error=%ERRORLEVEL%
   DEL /F .cleanup.cmd 2>/NUL
+  DEL /F .ret 2>/NUL
   EXIT /b %error%
 
 
@@ -1510,9 +1589,11 @@ REM
 :_waitRunThread
   SETLOCAL
   FOR %%n IN (%*) DO (
-    FOR /F "usebackq delims=" %%c IN (".%%n.cmd") DO (
-      ECHO ## WAIT [THREAD %%n] %%c...
-    ) 2>/NUL
+    IF EXIST ".%%n.cmd" (
+      FOR /F "usebackq delims=" %%c IN (".%%n.cmd") DO (
+        ECHO ## WAIT [THREAD %%n] %%c...
+      )
+    )
   )
 
   :_waitRunThreadLoop
@@ -1576,16 +1657,20 @@ REM               quoted part would not work.
 REM
 REM @return Update escaped values back into each specified variable names.
 REM
-REM @test SET "A=1.._1,,^^B^%D^!E^!" && CALL :escPercent A && ECHO "^%A^%"
-REM It would display exact original content of A which was
-REM "1.._1,,^B^%^%D^!E^!"
+REM @test 
+REM   SET A="a&b" "1.._1,,^^B^%D^^^!E^^^!" 
+REM   CALL :escPercent A 
+REM   ECHO %A%
+REM
+REM It would display: 
+REM "a&b" "1.._1,,^^B%%D^^^!E^^^!"
 REM
 :escPercent
   IF "%~1"=="" EXIT /b 0
   SETLOCAL EnableDelayedExpansion
-  CALL SET "VAL=%%%~1%%."
-  SET "VAL=!VAL:%%=%%%%!"
-  ENDLOCAL && SET "%~1=%VAL:~0,-1%"
+  CALL SET VAL=%%%~1%%.
+  SET VAL=!VAL:%%=%%%%!
+  ENDLOCAL && SET %~1=%VAL:~0,-1%
   SHIFT && GOTO :escPercent
 
 
@@ -1638,8 +1723,8 @@ CALL :_getPID
   ECHO.   }
   ECHO. }
   ECHO. Set-Content '%_traceFile%.%PID%.trace.cmd' -Value $traceContent
-) > "%_traceFile%.%PID%.trace.ps1" || EXIT /b 1
-powershell.exe -File "%_traceFile%.%PID%.trace.ps1" || EXIT /b 1
+) 1> "%_traceFile%.%PID%.trace.ps1" || GOTO :EOF
+powershell.exe -File "%_traceFile%.%PID%.trace.ps1" || GOTO :EOF
 DEL /F "%_traceFile%.%PID%.trace.ps1" 2>/NUL
 (ECHO DEL /F "%_traceFile%.%PID%.trace.cmd" 2^>/NUL) >> .cleanup.cmd
 (%_traceFile%.%PID%.trace.cmd %*)
