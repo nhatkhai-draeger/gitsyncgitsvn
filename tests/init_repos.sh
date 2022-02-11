@@ -1,5 +1,5 @@
 #!/bin/bash
-INFO "# Crate repos"
+INFO "# Create repos"
 
 INFO "## Create empty svn repo"
 echo svn_repo >> clean_list
