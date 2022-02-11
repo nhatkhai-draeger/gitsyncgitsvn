@@ -39,6 +39,8 @@ test()
   pushd tmp_$os
   export HOME="`pwd`"
   export GIT_CONFIG_NOSYSTEM=1
+  export FILTER_BRANCH_SQUELCH_WARNING=1
+  unset  SSH_ASKPASS
   export PATH
   ../sync_test -v -f "$@"
   err=$?
