@@ -405,7 +405,8 @@ init_fetchNewSvnFolder()
 syncSVNtoGIT()
 {
   INFO "****** Fetch new commits from SVN to $svnRemote"
-  local svnOldSHA1=`getSHA1 "$svnRemote"`
+  local svnOldSHA1=`getSHA1 "$svnBranch"` \
+    || local svnOldSHA1=`getSHA1 "$svnRemote"`
   printf "%s\n" "$svnPwd" | \
     git svn fetch --username "$svnUser" \
     -A "$authorFile" 2> "$filterLog"
