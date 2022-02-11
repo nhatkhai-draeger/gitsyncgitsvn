@@ -1,0 +1,725 @@
+(502)$ cijobs.sh test  lfs_gitrename
+"C:\Program Files\Git\mingw64\bin\curl.exe"  "https://att.corp.draeger.global/Distribution/Config/env/developer.txt" -o "C:\Develop\Install\tmp\.cache\.envVars.32600.dl"       --fail --insecure --location --silent
+Download https://att.corp.draeger.global/Distribution/Config/env/developer.txt to C:\Develop\Install\tmp\.cache\.envVars
+SET ci_proxy=http://zscaler.draeger.com:80
+SET cacheL2=\\att.corp.draeger.global\distribution\cached
+SET PIP_INDEX_URL=https://andover-artifactory.draeger.com/artifactory/api/pypi/pypi/simple
+SET TMP=C:\Develop\Install\tmp
+SET TEMP=C:\Develop\Install\tmp
+01:55:07 MINSYS setup
+01:55:07 Apply /c/projects/.profile_local
+01:55:14 Wellcome
+Check and install subversion if needed
+Start svn server
+~/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys ~/git/general_jenkins_jobs/gitsyncgitsvn
+[---------------] 01:55:17  [ sync_test:348 ]   INFO Started on Sun, Feb  6, 2022  1:55:17 AM
+[cleanup] 01:55:25  [cleanup.sh:2   ]   NOTE # Clean current directory
+[cleanup] 01:55:26  [cleanup.sh:5   ]   INFO removing .gitattributes
+[cleanup] 01:55:28  [cleanup.sh:5   ]   INFO removing /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/.gitconfig
+[cleanup] 01:55:29  [cleanup.sh:5   ]   INFO removing /tmp/init_new_sync_{0,1}*
+[cleanup] 01:55:30  [cleanup.sh:5   ]   INFO removing /tmp/sync_{0,1}*
+[cleanup] 01:55:31  [cleanup.sh:5   ]   INFO removing authors
+[cleanup] 01:55:32  [cleanup.sh:5   ]   INFO removing clean_list
+[cleanup] 01:55:33  [cleanup.sh:5   ]   INFO removing git_repo
+[cleanup] 01:55:35  [cleanup.sh:5   ]   INFO removing git_test
+[cleanup] 01:55:36  [cleanup.sh:5   ]   INFO removing git_test/proj2
+[cleanup] 01:55:37  [cleanup.sh:5   ]   INFO removing git_test/proj2_local
+[cleanup] 01:55:39  [cleanup.sh:5   ]   INFO removing gitLFSDot
+[cleanup] 01:55:40  [cleanup.sh:5   ]   INFO removing log
+[cleanup] 01:55:41  [cleanup.sh:5   ]   INFO removing svn_repo
+[cleanup] 01:55:42  [cleanup.sh:5   ]   INFO removing svn_test
+[cleanup] 01:55:43  [cleanup.sh:11  ]   INFO >ls -a
+[cleanup]                                 -- .
+[cleanup]                                 -- ..
+[cleanup]                                 -- .subversion
+[cleanup] svn, version 1.8.10 (r1615264)
+[cleanup]    compiled Aug 25 2014, 13:31:08 on x86-microsoft-windows
+[cleanup]
+[cleanup] Copyright (C) 2014 The Apache Software Foundation.
+[cleanup] This software consists of contributions made by many people;
+[cleanup] see the NOTICE file for more information.
+[cleanup] Subversion is open source software, see http://subversion.apache.org/
+[cleanup]
+[cleanup] The following repository access (RA) modules are available:
+[cleanup]
+[cleanup] * ra_svn : Module for accessing a repository using the svn network protocol.
+[cleanup]   - with Cyrus SASL authentication
+[cleanup]   - handles 'svn' scheme
+[cleanup] * ra_local : Module for accessing a repository on local disk.
+[cleanup]   - handles 'file' scheme
+[cleanup] * ra_serf : Module for accessing a repository via WebDAV protocol using serf.
+[cleanup]   - using serf 1.3.7
+[cleanup]   - handles 'http' scheme
+[cleanup]   - handles 'https' scheme
+[cleanup]
+[env_setup] 01:55:46  [v_setup.sh:5   ]   INFO # Configure test environment
+[env_setup] 01:55:47  [v_setup.sh:16  ]   INFO ## Create authors file
+[env_setup] 01:55:48  [v_setup.sh:22  ]   INFO ## Create .gitattributes files
+[init_repos] 01:55:50  [t_repos.sh:2   ]   INFO # Create repos
+[init_repos] 01:55:51  [t_repos.sh:4   ]   INFO ## Create empty svn repo
+[init_repos] ~/svn_repo/conf ~
+[init_repos] ~
+[init_repos] 01:55:53  [t_repos.sh:13  ]   INFO ## Create proj1 in SVN with some commits
+[init_repos] Checked out revision 0.
+[init_repos] ~/svn_test ~
+[init_repos] A         proj1
+[init_repos] A         proj1\file1
+[init_repos] Adding         proj1
+[init_repos] Adding         proj1\file1
+[init_repos] Transmitting file data .
+[init_repos] Committed revision 1.
+[init_repos] ~
+[init_repos] 01:55:56  [t_repos.sh:24  ]   INFO ## Create proj2 in SVN with some commits
+[init_repos] ~/svn_test ~
+[init_repos] A         proj2
+[init_repos] A         proj2\file1
+[init_repos] A         proj2\file1.dat
+[init_repos] Adding         proj2
+[init_repos] Adding         proj2\file1
+[init_repos] Adding         proj2\file1.dat
+[init_repos] Transmitting file data ..
+[init_repos] Committed revision 2.
+[init_repos] Updating '.':
+[init_repos] At revision 2.
+[init_repos] ~
+[init_repos] 01:55:58  [t_repos.sh:34  ]   INFO ## Create proj a b in SVN with some commits
+[init_repos] ~/svn_test ~
+[init_repos] A         proj a b
+[init_repos] A         proj a b\file1
+[init_repos] A         proj a b\file1.dat
+[init_repos] Adding         proj a b
+[init_repos] Adding         proj a b\file1
+[init_repos] Adding         proj a b\file1.dat
+[init_repos] Transmitting file data ..
+[init_repos] Committed revision 3.
+[init_repos] Updating '.':
+[init_repos] At revision 3.
+[init_repos] ~
+[init_repos] 01:56:01  [t_repos.sh:44  ]   INFO ## Create empty git repo
+[init_repos] Initialized empty Git repository in C:/Develop/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj1.git/
+[init_repos] Initialized empty Git repository in C:/Develop/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git/
+[init_repos] Initialized empty Git repository in C:/Develop/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/projab.git/
+[init_repos] 01:56:03  [t_repos.sh:50  ]   INFO ## Create empty git test folder
+[test_lfs_init] 01:56:05  [fs_init.sh:7   ]   TEST INITIAL SYNC PROJ2 FROM SVN (LFS)
+[test_lfs_init] 01:56:06  [fs_init.sh:15  ]   INFO # /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/init_new_sync --noflock --svnUrl svn://localhost/C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/svn_repo --gitUrl file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo --svnUser nguyennh --svnPwd a --authors /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/authors -v --logDir log --gitDir git_test --gitDot gitLFSDot -d proj2
+[test_lfs_init] ~/git_test ~
+[test_lfs_init] ~
+[test_lfs_init] [---------------] 01:56:12  [t_new_sync:168 ]   INFO ++++ Initialize proj2....
+[test_lfs_init] [          proj2] ~/git_test/proj2 ~/git_test ~
+[test_lfs_init] [          proj2] 01:56:13  [t_new_sync:188 ]   INFO # Make initial local repos
+[test_lfs_init] [          proj2] Initialized empty Git repository in C:/Develop/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_test/proj2/.git/
+[test_lfs_init] [          proj2] [master (root-commit) c9eb649] Initial repo setting
+[test_lfs_init] [          proj2]  1 file changed, 1 insertion(+)
+[test_lfs_init] [          proj2]  create mode 100644 .gitattributes
+[test_lfs_init] [          proj2] 01:56:18  [      sync:1071]   INFO Started on Sun, Feb  6, 2022  1:56:17 AM
+[test_lfs_init] [          proj2] 01:56:25  [      sync:111 ]  DEBUG ## GIT, AND LFS CONFIGURATION ##
+[test_lfs_init] [          proj2] 01:56:26  [      sync:112 ]  DEBUG >which git-lfs
+[test_lfs_init] [          proj2]                                 -- /mingw64/bin/git-lfs
+[test_lfs_init] [          proj2]                              DEBUG >git lfs env
+[test_lfs_init] [          proj2]                                 -- git-lfs/2.13.3 (GitHub; windows amd64; go 1.16.2; git a5e65851)
+[test_lfs_init] [          proj2]                                 -- git version 2.32.0.windows.2
+[test_lfs_init] [          proj2]                                 --
+[test_lfs_init] [          proj2]                                 -- Endpoint=file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git (auth=none)
+[test_lfs_init] [          proj2]                                 -- LocalWorkingDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2
+[test_lfs_init] [          proj2]                                 -- LocalGitDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git
+[test_lfs_init] [          proj2]                                 -- LocalGitStorageDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git
+[test_lfs_init] [          proj2]                                 -- LocalMediaDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git\lfs\objects
+[test_lfs_init] [          proj2]                                 -- LocalReferenceDirs=
+[test_lfs_init] [          proj2]                                 -- TempDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git\lfs\tmp
+[test_lfs_init] [          proj2]                                 -- ConcurrentTransfers=8
+[test_lfs_init] [          proj2]                                 -- TusTransfers=false
+[test_lfs_init] [          proj2]                                 -- BasicTransfersOnly=false
+[test_lfs_init] [          proj2]                                 -- SkipDownloadErrors=false
+[test_lfs_init] [          proj2]                                 -- FetchRecentAlways=false
+[test_lfs_init] [          proj2]                                 -- FetchRecentRefsDays=7
+[test_lfs_init] [          proj2]                                 -- FetchRecentCommitsDays=0
+[test_lfs_init] [          proj2]                                 -- FetchRecentRefsIncludeRemotes=true
+[test_lfs_init] [          proj2]                                 -- PruneOffsetDays=3
+[test_lfs_init] [          proj2]                                 -- PruneVerifyRemoteAlways=false
+[test_lfs_init] [          proj2]                                 -- PruneRemoteName=origin
+[test_lfs_init] [          proj2]                                 -- LfsStorageDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git\lfs
+[test_lfs_init] [          proj2]                                 -- AccessDownload=none
+[test_lfs_init] [          proj2]                                 -- AccessUpload=none
+[test_lfs_init] [          proj2]                                 -- DownloadTransfers=basic,lfs-standalone-file
+[test_lfs_init] [          proj2]                                 -- UploadTransfers=basic,lfs-standalone-file
+[test_lfs_init] [          proj2]                                 -- GIT_CONFIG_NOSYSTEM=1
+[test_lfs_init] [          proj2]                                 -- GIT_EXEC_PATH=C:/Program Files/Git/mingw64/libexec/git-core
+[test_lfs_init] [          proj2]                                 -- GIT_LFS_PATH=C:\Program Files\Git LFS
+[test_lfs_init] [          proj2]                                 -- git config filter.lfs.process = ""
+[test_lfs_init] [          proj2]                                 -- git config filter.lfs.smudge = ""
+[test_lfs_init] [          proj2]                                 -- git config filter.lfs.clean = ""
+[test_lfs_init] [          proj2] 01:56:29  [      sync:113 ]  DEBUG >which git
+[test_lfs_init] [          proj2]                                 -- /mingw64/bin/git
+[test_lfs_init] [          proj2]                              DEBUG >git version
+[test_lfs_init] [          proj2]                                 -- git version 2.32.0.windows.2
+[test_lfs_init] [          proj2]                              DEBUG >git config --show-origin --list
+[test_lfs_init] [          proj2]                                 -- file:C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/.gitconfig        user.email=test@email.com
+[test_lfs_init] [          proj2]                                 -- file:C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/.gitconfig        user.name=tester
+[test_lfs_init] [          proj2]                                 -- file:.git/config   core.repositoryformatversion=0
+[test_lfs_init] [          proj2]                                 -- file:.git/config   core.filemode=false
+[test_lfs_init] [          proj2]                                 -- file:.git/config   core.bare=false
+[test_lfs_init] [          proj2]                                 -- file:.git/config   core.logallrefupdates=true
+[test_lfs_init] [          proj2]                                 -- file:.git/config   core.symlinks=false
+[test_lfs_init] [          proj2]                                 -- file:.git/config   core.ignorecase=true
+[test_lfs_init] [          proj2]                                 -- file:.git/config   remote.origin.url=file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[test_lfs_init] [          proj2]                                 -- file:.git/config   remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+[test_lfs_init] [          proj2]                                 -- file:.git/config   svn-remote.svn.rewriteroot=
+[test_lfs_init] [          proj2]                                 -- file:.git/config   svn-remote.svn.url=svn://localhost/C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/svn_repo/
+[test_lfs_init] [          proj2] 01:56:31  [      sync:114 ]  DEBUG Use temp folder of C:/Develop/Install/tmp/sync_220206_015619_24687
+[test_lfs_init] [          proj2] WARNING: error running C:\Program Files\Git\mingw64\libexec\git-core\git.exe 'config' '--local' '--remove-section' 'filter.lfs': 'fatal: no such section: filter.lfs' 'exit status 128'
+[test_lfs_init] [          proj2] Hooks for this repository have been removed.
+[test_lfs_init] [          proj2] 01:56:36  [      sync:983 ]  DEBUG LFS files are: *.dat
+[test_lfs_init] [          proj2] Updated git hooks.
+[test_lfs_init] [          proj2] Git LFS initialized.
+[test_lfs_init] [          proj2] file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[test_lfs_init] [          proj2] 01:56:41  [      sync:335 ]   INFO ****** Create a svn remote under svn-proj2 branch
+[test_lfs_init] [          proj2] 01:56:44  [      sync:349 ]   INFO ****** Fetch SVN into svn-proj2
+[test_lfs_init] [          proj2] Switched to a new branch 'svn/proj2'
+[test_lfs_init] [          proj2] Hooks for this repository have been removed.
+[test_lfs_init] [          proj2]       A       file1
+[test_lfs_init] [          proj2]       A       file1.dat
+[test_lfs_init] [          proj2] r2 = 9374720e91b508bb1aa911941821821aaeb2adc1 (refs/remotes/svn-proj2)
+[test_lfs_init] [          proj2] Already on 'svn/proj2'
+[test_lfs_init] [          proj2] HEAD is now at 9374720 1st project2
+[test_lfs_init] [          proj2] 01:57:22  [      sync:369 ]   INFO ****** Create new branch svn/lfs/proj2
+[test_lfs_init] [          proj2] 01:57:23  [      sync:376 ]   INFO ****** Rebase SVN commits with lfs settings
+[test_lfs_init] [          proj2] Rewrite 9374720e91b508bb1aa911941821821aaeb2adc1 (1/1) (0 seconds passed, remaining 0 predicted)
+[test_lfs_init] [          proj2] Ref 'refs/heads/svn/lfs/proj2' was rewritten
+[test_lfs_init] [          proj2] Updated git hooks.
+[test_lfs_init] [          proj2] Git LFS initialized.
+[test_lfs_init] [          proj2] migrate: Fetching remote refs: ..., done.
+[test_lfs_init] [          proj2] migrate: Sorting commits: ..., done.
+[test_lfs_init] [          proj2] migrate: Rewriting commits: 100% (1/1), done.
+[test_lfs_init] [          proj2] migrate: Updating refs: ..., done.
+[test_lfs_init] [          proj2] migrate: checkout: ..., done.
+[test_lfs_init] [          proj2] 01:57:53  [      sync:402 ]   INFO ****** Backup master branch to backup/master_220206_015752
+[test_lfs_init] [          proj2] 01:57:53  [      sync:405 ]   INFO ****** Set master branch to svn/lfs/proj2
+[test_lfs_init] [          proj2] Uploading LFS objects: 100% (1/1), 0 B | 0 B/s, done.
+[test_lfs_init] [          proj2] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[test_lfs_init] [          proj2] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[test_lfs_init] [          proj2] To file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[test_lfs_init] [          proj2]  * [new branch]      svn/lfs/proj2 -> svn/lfs/proj2
+[test_lfs_init] [          proj2]  * [new branch]      master -> master
+[test_lfs_init] [          proj2] 01:58:06  [      sync:134 ]  DEBUG SVN folder label: proj2
+[test_lfs_init] [          proj2] 01:58:07  [      sync:135 ]  DEBUG SVN branch      : 9374720e91b508bb1aa911941821821aaeb2adc1 - svn-proj2
+[test_lfs_init] [          proj2] 01:58:07  [      sync:136 ]  DEBUG LFS sync branch : e79348f64cc49c4646931cd9996fcea713ddc5cb - svn/lfs/proj2
+[test_lfs_init] [          proj2] 01:58:08  [      sync:418 ]   INFO ****** Fetch new commits from SVN to svn-proj2
+[test_lfs_init] [          proj2] 01:58:26  [      sync:426 ]  DEBUG New SHA-1 for svn-proj2: 9374720e91b508bb1aa911941821821aaeb2adc1
+[test_lfs_init] [          proj2] 01:58:26  [      sync:429 ]   INFO Make sure svn/lfs/proj2 sync with the server
+[test_lfs_init] [          proj2] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[test_lfs_init] [          proj2] Everything up-to-date
+[test_lfs_init] [          proj2] 01:58:31  [      sync:434 ]   INFO No new SVN commits to work on.
+[test_lfs_init] [          proj2] 01:58:31  [      sync:576 ]   INFO ###### Adj GIT on top of SVN ######
+[test_lfs_init] [          proj2] Already on 'svn/proj2'
+[test_lfs_init] [          proj2] 01:58:35  [      sync:580 ]   INFO ***** Update master from git server
+[test_lfs_init] [          proj2] From file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2
+[test_lfs_init] [          proj2]  * branch            master     -> FETCH_HEAD
+[test_lfs_init] [          proj2] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[test_lfs_init] [          proj2] 01:58:39  [      sync:590 ]   INFO Nothing to be syn.
+[test_lfs_init] [          proj2] 01:58:41  [      sync:145 ]   INFO ****** Cleanup git report
+[test_lfs_init] [          proj2] ~/git_test ~
+[test_lfs_init] [---------------] 01:58:44  [t_new_sync:216 ]   INFO +++++++ proj2 is initialized.
+[test_lfs_init] [---------------] 01:58:47  [t_new_sync:122 ]   INFO DONE: Everything went fine.
+[test_lfs_init] [---------------] 01:58:48  [t_new_sync:223 ]   INFO Cleaning up...
+[test_lfs_init] ~/git_test/proj2 ~
+[test_lfs_init] Hooks for this repository have been removed.
+[test_lfs_init] Already on 'svn/proj2'
+[test_lfs_init] 01:58:52  [fs_init.sh:22  ]   INFO PASS [[0 -eq 0]] :: should match svn contents
+[test_lfs_init] 01:59:01  [fs_init.sh:23  ]   INFO PASS [[-z ]] :: no lfs in svn/proj2 branch
+[test_lfs_init] Updated git hooks.
+[test_lfs_init] Git LFS initialized.
+[test_lfs_init] Your branch is up to date with 'origin/master'.
+[test_lfs_init] Switched to branch 'master'
+[test_lfs_init] 01:59:10  [fs_init.sh:29  ]   INFO PASS [[0 -eq 0]] :: should match svn contents
+[test_lfs_init] 01:59:16  [fs_init.sh:30  ]   INFO PASS [[39708b18de * file1.dat =~ * file1.dat$]] :: lfs in master
+[test_lfs_init] ~
+[_lfs_gitcommits] 01:59:17  [commits.sh:5   ]   TEST SYNC COMMITS PROJ2 FROM GIT (LFS)
+[_lfs_gitcommits] 01:59:17  [commits.sh:7   ]   INFO # Inject some change from git repos
+[_lfs_gitcommits] Cloning into 'git_test/proj2_local'...
+[_lfs_gitcommits] ~/git_test/proj2_local ~
+[_lfs_gitcommits] Updated git hooks.
+[_lfs_gitcommits] Git LFS initialized.
+[_lfs_gitcommits] Your branch is up to date with 'origin/master'.
+[_lfs_gitcommits] Already on 'master'
+[_lfs_gitcommits] [master 660f075] 2nd
+[_lfs_gitcommits]  2 files changed, 4 insertions(+)
+[_lfs_gitcommits]  create mode 100644 file2
+[_lfs_gitcommits]  create mode 100644 file3.dat
+[_lfs_gitcommits] Uploading LFS objects: 100% (1/1), 0 B | 0 B/s, done.
+[_lfs_gitcommits] To file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[_lfs_gitcommits]    e79348f..660f075  master -> master
+[_lfs_gitcommits] ~
+[_lfs_gitcommits] ~/git_test/proj2 ~
+[_lfs_gitcommits] 01:59:42  [commits.sh:23  ]   INFO # /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/sync --svnUser nguyennh --svnPwd a --authors /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/authors
+[_lfs_gitcommits] 01:59:43  [      sync:1071]   INFO Started on Sun, Feb  6, 2022  1:59:43 AM
+[_lfs_gitcommits] Hooks for this repository have been removed.
+[_lfs_gitcommits] Updated git hooks.
+[_lfs_gitcommits] Git LFS initialized.
+[_lfs_gitcommits] 02:00:01  [      sync:418 ]   INFO ****** Fetch new commits from SVN to svn-proj2
+[_lfs_gitcommits] 02:00:19  [      sync:429 ]   INFO Make sure svn/lfs/proj2 sync with the server
+[_lfs_gitcommits] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[_lfs_gitcommits] Everything up-to-date
+[_lfs_gitcommits] 02:00:24  [      sync:434 ]   INFO No new SVN commits to work on.
+[_lfs_gitcommits] 02:00:25  [      sync:576 ]   INFO ###### Adj GIT on top of SVN ######
+[_lfs_gitcommits] Switched to branch 'svn/proj2'
+[_lfs_gitcommits] 02:00:28  [      sync:580 ]   INFO ***** Update master from git server
+[_lfs_gitcommits] From file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2
+[_lfs_gitcommits]  * branch            master     -> FETCH_HEAD
+[_lfs_gitcommits]    e79348f..660f075  master     -> origin/master
+[_lfs_gitcommits] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[_lfs_gitcommits] 02:00:33  [      sync:599 ]   INFO e79348f64cc49c4646931cd9996fcea713ddc5cb is common ancestor of master and svn/lfs/proj2
+[_lfs_gitcommits] 02:00:34  [      sync:661 ]   INFO ###### Sync GIT commits to SVN ######
+[_lfs_gitcommits] 02:00:35  [      sync:665 ]   INFO ****** Put new git commits onto svn-proj2
+[_lfs_gitcommits] Hooks for this repository have been removed.
+[_lfs_gitcommits]
+[_lfs_gitcommits]   Remove LFS pointer on file3.dat
+[_lfs_gitcommits] [detached HEAD 1783dd0] 2nd
+[_lfs_gitcommits]  Date: Sun Feb 6 01:59:31 2022 -0500
+[_lfs_gitcommits]  2 files changed, 2 insertions(+)
+[_lfs_gitcommits]  create mode 100644 file2
+[_lfs_gitcommits]  create mode 100644 file3.dat
+[_lfs_gitcommits] Rewrite 1783dd02211238eb12baaec0e880c56de673c0d4 (1/1) (1 seconds passed, remaining 0 predicted)
+[_lfs_gitcommits] Ref 'refs/heads/try/merge' was rewritten
+[_lfs_gitcommits] Updated git hooks.
+[_lfs_gitcommits] Git LFS initialized.
+[_lfs_gitcommits] 02:01:11  [      sync:841 ]   INFO **** Check make sure no new SVN commit ***
+[_lfs_gitcommits] 02:01:12  [      sync:418 ]   INFO ****** Fetch new commits from SVN to svn-proj2
+[_lfs_gitcommits] 02:01:30  [      sync:429 ]   INFO Make sure svn/lfs/proj2 sync with the server
+[_lfs_gitcommits] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[_lfs_gitcommits] Everything up-to-date
+[_lfs_gitcommits] 02:01:34  [      sync:434 ]   INFO No new SVN commits to work on.
+[_lfs_gitcommits] 02:01:35  [      sync:844 ]   INFO ****** Do DCommit to push git commits into SVN server
+[_lfs_gitcommits] Committing to svn://localhost/C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/svn_repo/proj2 ...
+[_lfs_gitcommits]       A       file2
+[_lfs_gitcommits]       A       file3.dat
+[_lfs_gitcommits] Committed r4
+[_lfs_gitcommits]       A       file3.dat
+[_lfs_gitcommits]       A       file2
+[_lfs_gitcommits] r4 = 6f63313182885cb8104a8db7621e4ce9bab92ce1 (refs/remotes/svn-proj2)
+[_lfs_gitcommits] No changes between 077167b715f0c6068f01d885ee162643dbe0ee67 and refs/remotes/svn-proj2
+[_lfs_gitcommits] Resetting to the latest refs/remotes/svn-proj2
+[_lfs_gitcommits] dcommitted the branch try/merge
+[_lfs_gitcommits] 02:02:20  [      sync:857 ]   INFO ****** Figure what were committed into SVN and update the states
+[_lfs_gitcommits] 02:02:21  [      sync:861 ]   INFO There is 1/1 committed into SVN server
+[_lfs_gitcommits] 02:02:21  [      sync:867 ]   INFO ****** Try to update svn/lfs/proj2 and master after dcommits
+[_lfs_gitcommits] Switched to branch 'try/lfs/merge'
+[_lfs_gitcommits] 02:02:28  [      sync:905 ]   INFO ***** Merge master and svn/lfs/proj2
+[_lfs_gitcommits] Already up to date.
+[_lfs_gitcommits] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[_lfs_gitcommits] To file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[_lfs_gitcommits]    e79348f..660f075  svn/lfs/proj2 -> svn/lfs/proj2
+[_lfs_gitcommits] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[_lfs_gitcommits] Everything up-to-date
+[_lfs_gitcommits] 02:02:41  [      sync:942 ]   INFO ****** Remove temporary branches
+[_lfs_gitcommits] Switched to branch 'svn/proj2'
+[_lfs_gitcommits] Deleted branch try/lfs/merge (was 660f075).
+[_lfs_gitcommits] Deleted branch try/merge (was 6f63313).
+[_lfs_gitcommits] 02:02:47  [      sync:145 ]   INFO ****** Cleanup git report
+[_lfs_gitcommits] 02:02:50  [      sync:290 ]   INFO Committers' email:
+[_lfs_gitcommits] 02:02:50  [      sync:291 ]   INFO >cat "/tmp/sync_220206_015944_25468/emails"
+[_lfs_gitcommits]                                 --
+[_lfs_gitcommits]                                 -- test@email.com
+[_lfs_gitcommits] ~
+[_lfs_gitcommits] Updating '.':
+[_lfs_gitcommits] A    file2
+[_lfs_gitcommits] A    file3.dat
+[_lfs_gitcommits] Updated to revision 4.
+[_lfs_gitcommits] ~/git_test/proj2 ~
+[_lfs_gitcommits] Updated git hooks.
+[_lfs_gitcommits] Git LFS initialized.
+[_lfs_gitcommits] Your branch is up to date with 'origin/master'.
+[_lfs_gitcommits] Switched to branch 'master'
+[_lfs_gitcommits] 02:03:02  [commits.sh:33  ]   INFO PASS [[0 -eq 0]] :: svn and git should be matched
+[_lfs_gitcommits] Common subdirectories: ./.git and ../../git_test/proj2_local/.git
+[_lfs_gitcommits] 02:03:03  [commits.sh:36  ]   INFO PASS [[0 -eq 0]] :: git_local and git should be matched
+[_lfs_gitcommits] ~
+[t_lfs_gitrename] 02:03:04  [trename.sh:5   ]   TEST ADD FILE IN SVN, SYNC, GIT MOVE FILE, THEN SYNC
+[t_lfs_gitrename] ~/svn_test/proj2 ~
+[t_lfs_gitrename] A         gitrename1.dat
+[t_lfs_gitrename] A         gitrename_conflict1
+[t_lfs_gitrename] Adding         gitrename1.dat
+[t_lfs_gitrename] Adding         gitrename_conflict1
+[t_lfs_gitrename] Transmitting file data ..
+[t_lfs_gitrename] Committed revision 5.
+[t_lfs_gitrename] ~
+[t_lfs_gitrename] 02:03:06  [trename.sh:14  ]   INFO # Sync svn change to git
+[t_lfs_gitrename] ~/git_test/proj2 ~
+[t_lfs_gitrename] 02:03:07  [trename.sh:18  ]   INFO # /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/sync --svnUser nguyennh --svnPwd a --authors /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/authors
+[t_lfs_gitrename] 02:03:09  [      sync:1071]   INFO Started on Sun, Feb  6, 2022  2:03:08 AM
+[t_lfs_gitrename] Hooks for this repository have been removed.
+[t_lfs_gitrename] Updated git hooks.
+[t_lfs_gitrename] Git LFS initialized.
+[t_lfs_gitrename] 02:03:27  [      sync:418 ]   INFO ****** Fetch new commits from SVN to svn-proj2
+[t_lfs_gitrename]       A       gitrename_conflict1
+[t_lfs_gitrename]       A       gitrename1.dat
+[t_lfs_gitrename] r5 = 1096997ee35de71b36839ae5648b5c5120338820 (refs/remotes/svn-proj2)
+[t_lfs_gitrename] 02:03:54  [      sync:438 ]   INFO ###### Sync SVN commits to GIT ######
+[t_lfs_gitrename] Switched to branch 'svn/proj2'
+[t_lfs_gitrename] 02:03:57  [      sync:444 ]   INFO ****** Put new SVN commits 6f633131..1096997e     onto svn/lfs/proj2
+[t_lfs_gitrename] 02:03:59  [      sync:454 ]   INFO ** Apply LFS setting on new SVN commits on svn-proj2
+[t_lfs_gitrename] 02:03:59  [      sync:456 ]   INFO Repair, and find new binary file for apply LFS
+[t_lfs_gitrename] Rewrite 1096997ee35de71b36839ae5648b5c5120338820 (1/1) (1 seconds passed, remaining 0 predicted)
+[t_lfs_gitrename] Ref 'refs/heads/try/lfs/fromSVN' was rewritten
+[t_lfs_gitrename] 02:04:17  [      sync:483 ]   INFO Migrate SVN commit to LFS
+[t_lfs_gitrename] migrate: Sorting commits: ..., done.
+[t_lfs_gitrename] migrate: Rewriting commits: 100% (1/1), done.
+[t_lfs_gitrename] migrate: Updating refs: ..., done.
+[t_lfs_gitrename] migrate: checkout: ..., done.
+[t_lfs_gitrename] 02:04:24  [      sync:498 ]   INFO Now rebase onto svn/lfs/proj2
+[t_lfs_gitrename] Rebasing (1/1)Successfully rebased and updated refs/heads/try/lfs/fromSVN.
+[t_lfs_gitrename] Rewrite 8e79da97e9209bc065a3d4cf379a571ee05e86e8 (1/1) (1 seconds passed, remaining 0 predicted)
+[t_lfs_gitrename] Ref 'refs/heads/try/lfs/fromSVN' was rewritten
+[t_lfs_gitrename] 02:04:54  [      sync:553 ]   INFO *** Go back to svn/proj2 after rebase
+[t_lfs_gitrename] Switched to and reset branch 'svn/proj2'
+[t_lfs_gitrename] HEAD is now at 1096997 add gitrename1
+[t_lfs_gitrename] Deleted branch try/lfs/fromSVN (was f0de38a).
+[t_lfs_gitrename] Uploading LFS objects: 100% (1/1), 0 B | 0 B/s, done.
+[t_lfs_gitrename] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[t_lfs_gitrename] To file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[t_lfs_gitrename]    660f075..f0de38a  svn/lfs/proj2 -> svn/lfs/proj2
+[t_lfs_gitrename] 02:05:07  [      sync:576 ]   INFO ###### Adj GIT on top of SVN ######
+[t_lfs_gitrename] Already on 'svn/proj2'
+[t_lfs_gitrename] 02:05:10  [      sync:580 ]   INFO ***** Update master from git server
+[t_lfs_gitrename] From file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2
+[t_lfs_gitrename]  * branch            master     -> FETCH_HEAD
+[t_lfs_gitrename] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[t_lfs_gitrename] 02:05:15  [      sync:599 ]   INFO 660f075fb4c4e325b42637d348f8a70129a96054 is common ancestor of master and svn/lfs/proj2
+[t_lfs_gitrename] 02:05:16  [      sync:616 ]   INFO ****** Fast-forward master to svn/lfs/proj2
+[t_lfs_gitrename] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[t_lfs_gitrename] To file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[t_lfs_gitrename]    660f075..f0de38a  master -> master
+[t_lfs_gitrename] 02:05:22  [      sync:661 ]   INFO ###### Sync GIT commits to SVN ######
+[t_lfs_gitrename] 02:05:23  [      sync:665 ]   INFO ****** Put new git commits onto svn-proj2
+[t_lfs_gitrename] Hooks for this repository have been removed.
+[t_lfs_gitrename] Found nothing to rewrite
+[t_lfs_gitrename] Updated git hooks.
+[t_lfs_gitrename] Git LFS initialized.
+[t_lfs_gitrename] 02:05:41  [      sync:841 ]   INFO **** Check make sure no new SVN commit ***
+[t_lfs_gitrename] 02:05:42  [      sync:418 ]   INFO ****** Fetch new commits from SVN to svn-proj2
+[t_lfs_gitrename] 02:06:00  [      sync:429 ]   INFO Make sure svn/lfs/proj2 sync with the server
+[t_lfs_gitrename] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[t_lfs_gitrename] Everything up-to-date
+[t_lfs_gitrename] 02:06:05  [      sync:434 ]   INFO No new SVN commits to work on.
+[t_lfs_gitrename] 02:06:06  [      sync:844 ]   INFO ****** Do DCommit to push git commits into SVN server
+[t_lfs_gitrename] Committing to svn://localhost/C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/svn_repo/proj2 ...
+[t_lfs_gitrename] dcommitted the branch try/merge
+[t_lfs_gitrename] 02:06:35  [      sync:857 ]   INFO ****** Figure what were committed into SVN and update the states
+[t_lfs_gitrename] 02:06:36  [      sync:861 ]   INFO There is 0/0 committed into SVN server
+[t_lfs_gitrename] 02:06:36  [      sync:867 ]   INFO ****** Try to update svn/lfs/proj2 and master after dcommits
+[t_lfs_gitrename] Switched to branch 'try/lfs/merge'
+[t_lfs_gitrename] 02:06:42  [      sync:905 ]   INFO ***** Merge master and svn/lfs/proj2
+[t_lfs_gitrename] Already up to date.
+[t_lfs_gitrename] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[t_lfs_gitrename] Everything up-to-date
+[t_lfs_gitrename] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[t_lfs_gitrename] Everything up-to-date
+[t_lfs_gitrename] 02:06:53  [      sync:942 ]   INFO ****** Remove temporary branches
+[t_lfs_gitrename] Switched to branch 'svn/proj2'
+[t_lfs_gitrename] Deleted branch try/lfs/merge (was f0de38a).
+[t_lfs_gitrename] Deleted branch try/merge (was 1096997).
+[t_lfs_gitrename] 02:06:58  [      sync:145 ]   INFO ****** Cleanup git report
+[t_lfs_gitrename] 02:07:01  [      sync:290 ]   INFO Committers' email:
+[t_lfs_gitrename] 02:07:01  [      sync:291 ]   INFO >cat "/tmp/sync_220206_020310_26253/emails"
+[t_lfs_gitrename]                                 --
+[t_lfs_gitrename]                                 -- one@email.com
+[t_lfs_gitrename] ~
+[t_lfs_gitrename] 02:07:02  [trename.sh:22  ]   INFO # Modify file on SVN, and move file from git repos
+[t_lfs_gitrename] ~/svn_test/proj2 ~
+[t_lfs_gitrename] Sending        gitrename_conflict1
+[t_lfs_gitrename] Transmitting file data .
+[t_lfs_gitrename] Committed revision 6.
+[t_lfs_gitrename] ~
+[t_lfs_gitrename] ~/git_test/proj2_local ~
+[t_lfs_gitrename] Updated git hooks.
+[t_lfs_gitrename] Git LFS initialized.
+[t_lfs_gitrename] From file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2
+[t_lfs_gitrename]    660f075..f0de38a  master        -> origin/master
+[t_lfs_gitrename]    e79348f..f0de38a  svn/lfs/proj2 -> origin/svn/lfs/proj2
+[t_lfs_gitrename] Updating 660f075..f0de38a
+[t_lfs_gitrename] Updating files: 100% (2/2)Updating files: 100% (2/2), done.
+[t_lfs_gitrename] Fast-forward
+[t_lfs_gitrename]  gitrename1.dat      | 3 +++
+[t_lfs_gitrename]  gitrename_conflict1 | 1 +
+[t_lfs_gitrename]  2 files changed, 4 insertions(+)
+[t_lfs_gitrename]  create mode 100644 gitrename1.dat
+[t_lfs_gitrename]  create mode 100644 gitrename_conflict1
+[t_lfs_gitrename] rm 'gitrename_conflict1'
+[t_lfs_gitrename] [master b712fbc] move gitrename1
+[t_lfs_gitrename]  2 files changed, 1 deletion(-)
+[t_lfs_gitrename]  delete mode 100644 gitrename_conflict1
+[t_lfs_gitrename]  rename gitrename1.dat => gitrename_folder/gitrename1.dat (100%)
+[t_lfs_gitrename] To file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[t_lfs_gitrename]    f0de38a..b712fbc  master -> master
+[t_lfs_gitrename] ~
+[t_lfs_gitrename] 02:07:26  [trename.sh:38  ]   INFO # Sync svn change to git
+[t_lfs_gitrename] ~/git_test/proj2 ~
+[t_lfs_gitrename] 02:07:27  [trename.sh:41  ]   INFO # /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/sync --svnUser nguyennh --svnPwd a --authors /c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/authors
+[t_lfs_gitrename] 02:07:29  [      sync:1071]   INFO Started on Sun, Feb  6, 2022  2:07:28 AM
+[t_lfs_gitrename] Hooks for this repository have been removed.
+[t_lfs_gitrename] Updated git hooks.
+[t_lfs_gitrename] Git LFS initialized.
+[t_lfs_gitrename] 02:07:44  [      sync:418 ]   INFO ****** Fetch new commits from SVN to svn-proj2
+[t_lfs_gitrename]       M       gitrename_conflict1
+[t_lfs_gitrename] r6 = d836cfdad52d1af6731856c848b5969fe082dae9 (refs/remotes/svn-proj2)
+[t_lfs_gitrename] 02:08:11  [      sync:438 ]   INFO ###### Sync SVN commits to GIT ######
+[t_lfs_gitrename] Already on 'svn/proj2'
+[t_lfs_gitrename] 02:08:15  [      sync:444 ]   INFO ****** Put new SVN commits 1096997e..d836cfda     onto svn/lfs/proj2
+[t_lfs_gitrename] 02:08:17  [      sync:454 ]   INFO ** Apply LFS setting on new SVN commits on svn-proj2
+[t_lfs_gitrename] 02:08:17  [      sync:456 ]   INFO Repair, and find new binary file for apply LFS
+[t_lfs_gitrename] Rewrite d836cfdad52d1af6731856c848b5969fe082dae9 (1/1) (0 seconds passed, remaining 0 predicted)
+[t_lfs_gitrename] Ref 'refs/heads/try/lfs/fromSVN' was rewritten
+[t_lfs_gitrename] 02:08:34  [      sync:483 ]   INFO Migrate SVN commit to LFS
+[t_lfs_gitrename] migrate: Sorting commits: ..., done.
+[t_lfs_gitrename] migrate: Rewriting commits: 100% (1/1), done.
+[t_lfs_gitrename] migrate: Updating refs: ..., done.
+[t_lfs_gitrename] migrate: checkout: ..., done.
+[t_lfs_gitrename] 02:08:40  [      sync:498 ]   INFO Now rebase onto svn/lfs/proj2
+[t_lfs_gitrename] Rebasing (1/1)Successfully rebased and updated refs/heads/try/lfs/fromSVN.
+[t_lfs_gitrename] Rewrite 42c41340216f4550b655c62f5fee93ca7409d21b (1/1) (1 seconds passed, remaining 0 predicted)
+[t_lfs_gitrename] Ref 'refs/heads/try/lfs/fromSVN' was rewritten
+[t_lfs_gitrename] 02:09:02  [      sync:553 ]   INFO *** Go back to svn/proj2 after rebase
+[t_lfs_gitrename] Switched to and reset branch 'svn/proj2'
+[t_lfs_gitrename] HEAD is now at d836cfd modify gitrename_conflict1
+[t_lfs_gitrename] Deleted branch try/lfs/fromSVN (was 0500dda).
+[t_lfs_gitrename] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[t_lfs_gitrename] To file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[t_lfs_gitrename]    f0de38a..0500dda  svn/lfs/proj2 -> svn/lfs/proj2
+[t_lfs_gitrename] 02:09:10  [      sync:576 ]   INFO ###### Adj GIT on top of SVN ######
+[t_lfs_gitrename] Already on 'svn/proj2'
+[t_lfs_gitrename] 02:09:13  [      sync:580 ]   INFO ***** Update master from git server
+[t_lfs_gitrename] From file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2
+[t_lfs_gitrename]  * branch            master     -> FETCH_HEAD
+[t_lfs_gitrename]    f0de38a..b712fbc  master     -> origin/master
+[t_lfs_gitrename] Branch 'master' set up to track remote branch 'master' from 'origin'.
+[t_lfs_gitrename] 02:09:17  [      sync:599 ]   INFO f0de38a38f6dbc1a1beec18a33b47c07100610b1 is common ancestor of master and svn/lfs/proj2
+[t_lfs_gitrename] 02:09:18  [      sync:661 ]   INFO ###### Sync GIT commits to SVN ######
+[t_lfs_gitrename] 02:09:19  [      sync:665 ]   INFO ****** Put new git commits onto svn-proj2
+[t_lfs_gitrename] Hooks for this repository have been removed.
+[t_lfs_gitrename] CONFLICT (modify/delete): gitrename_conflict1 deleted in b712fbc (move gitrename1) and modified in HEAD. Version HEAD of gitrename_conflict1 left in tree.
+[t_lfs_gitrename] 02:09:22  [      sync:747 ]   INFO **** Try to resolve conflict automatically at b712fbc5a8e89c0c7a8171b3fdd8e4e76c749c7b
+[t_lfs_gitrename] D  gitrename1.dat
+[t_lfs_gitrename] UD gitrename_conflict1
+[t_lfs_gitrename] A  gitrename_folder/gitrename1.dat
+[t_lfs_gitrename] remove 'gitrename_conflict1'
+[t_lfs_gitrename] error: pathspec 'gitrename1.dat' did not match any file(s) known to git
+[t_lfs_gitrename] fatal: pathspec 'gitrename1.dat' did not match any files
+[t_lfs_gitrename] [detached HEAD 5d88b07] move gitrename1
+[t_lfs_gitrename]  Date: Sun Feb 6 02:07:18 2022 -0500
+[t_lfs_gitrename]  3 files changed, 3 insertions(+), 3 deletions(-)
+[t_lfs_gitrename]  delete mode 100644 gitrename1.dat
+[t_lfs_gitrename]  delete mode 100644 gitrename_conflict1
+[t_lfs_gitrename]  create mode 100644 gitrename_folder/gitrename1.dat
+[t_lfs_gitrename]
+[t_lfs_gitrename]   Remove LFS pointer on gitrename_folder/gitrename1.dat
+[t_lfs_gitrename] [detached HEAD 5f50058] move gitrename1
+[t_lfs_gitrename]  Date: Sun Feb 6 02:07:18 2022 -0500
+[t_lfs_gitrename]  2 files changed, 2 deletions(-)
+[t_lfs_gitrename]  delete mode 100644 gitrename_conflict1
+[t_lfs_gitrename]  rename gitrename1.dat => gitrename_folder/gitrename1.dat (100%)
+[t_lfs_gitrename] Rewrite 5f500582ec8128714c59b1b13befd5ae237d2451 (1/1) (0 seconds passed, remaining 0 predicted)
+[t_lfs_gitrename] Ref 'refs/heads/try/merge' was rewritten
+[t_lfs_gitrename] Updated git hooks.
+[t_lfs_gitrename] Git LFS initialized.
+[t_lfs_gitrename] 02:09:50  [      sync:841 ]   INFO **** Check make sure no new SVN commit ***
+[t_lfs_gitrename] 02:09:51  [      sync:418 ]   INFO ****** Fetch new commits from SVN to svn-proj2
+[t_lfs_gitrename] 02:10:06  [      sync:429 ]   INFO Make sure svn/lfs/proj2 sync with the server
+[t_lfs_gitrename] Branch 'svn/lfs/proj2' set up to track remote branch 'svn/lfs/proj2' from 'origin'.
+[t_lfs_gitrename] Everything up-to-date
+[t_lfs_gitrename] 02:10:10  [      sync:434 ]   INFO No new SVN commits to work on.
+[t_lfs_gitrename] 02:10:10  [      sync:844 ]   INFO ****** Do DCommit to push git commits into SVN server
+[t_lfs_gitrename] Committing to svn://localhost/C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/svn_repo/proj2 ...
+[t_lfs_gitrename]       D       gitrename_conflict1
+[t_lfs_gitrename]       R       gitrename1.dat => gitrename_folder/gitrename1.dat
+[t_lfs_gitrename] Committed r7
+[t_lfs_gitrename]       D       gitrename1.dat
+[t_lfs_gitrename]       D       gitrename_conflict1
+[t_lfs_gitrename]       A       gitrename_folder/gitrename1.dat
+[t_lfs_gitrename] r7 = c56d83119042f40a90c816598565f87d516494e8 (refs/remotes/svn-proj2)
+[t_lfs_gitrename] No changes between 953c3788688f5d354bc9ebb006bf4f7b9a2e2ba2 and refs/remotes/svn-proj2
+[t_lfs_gitrename] Resetting to the latest refs/remotes/svn-proj2
+[t_lfs_gitrename] dcommitted the branch try/merge
+[t_lfs_gitrename] 02:10:49  [      sync:857 ]   INFO ****** Figure what were committed into SVN and update the states
+[t_lfs_gitrename] 02:10:49  [      sync:861 ]   INFO There is 1/1 committed into SVN server
+[t_lfs_gitrename] 02:10:50  [      sync:867 ]   INFO ****** Try to update svn/lfs/proj2 and master after dcommits
+[t_lfs_gitrename] Switched to branch 'try/lfs/merge'
+[t_lfs_gitrename] 02:10:55  [      sync:905 ]   INFO ***** Merge master and svn/lfs/proj2
+[t_lfs_gitrename] CONFLICT (modify/delete): gitrename_conflict1 deleted in HEAD and modified in svn/lfs/proj2. Version svn/lfs/proj2 of gitrename_conflict1 left in tree.
+[t_lfs_gitrename] Automatic merge failed; fix conflicts and then commit the result.
+[t_lfs_gitrename] 02:10:58  [      sync:908 ]  ERROR (1) Cannot merge svn/lfs/proj2 to master!
+[t_lfs_gitrename] 02:10:59  [      sync:290 ]   INFO Committers' email:
+[t_lfs_gitrename] 02:11:00  [      sync:291 ]   INFO >cat "/tmp/sync_220206_020729_27263/emails"
+[t_lfs_gitrename]                                 -- one@email.com
+[t_lfs_gitrename]                                 -- test@email.com
+[t_lfs_gitrename] 02:11:01  [      sync:301 ]   INFO ## GIT, AND LFS CONFIGURATION ##
+[t_lfs_gitrename] 02:11:02  [      sync:302 ]   INFO >env
+[t_lfs_gitrename]                                 -- USERDOMAIN=CORP
+[t_lfs_gitrename]                                 -- OS=Windows_NT
+[t_lfs_gitrename]                                 -- COMMONPROGRAMFILES=C:\Program Files\Common Files
+[t_lfs_gitrename]                                 -- PROCESSOR_LEVEL=6
+[t_lfs_gitrename]                                 -- PSModulePath=C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules;C:\Program Files (x86)\Microsoft Azure Information Protection\Powershell
+[t_lfs_gitrename]                                 -- CommonProgramW6432=C:\Program Files\Common Files
+[t_lfs_gitrename]                                 -- MGLS_LICENSE_FILE=27005@flexlm.draeger.com;1717@dsuband839
+[t_lfs_gitrename]                                 -- CommonProgramFiles(x86)=C:\Program Files (x86)\Common Files
+[t_lfs_gitrename]                                 -- LANG=en_US.UTF-8
+[t_lfs_gitrename]                                 -- HISTIGNORE=[   ]*:&:bg:fg:exit
+[t_lfs_gitrename]                                 -- HISTCONTROL=ignoreboth:erasedups
+[t_lfs_gitrename]                                 -- MSYSTEM_CARCH=x86_64
+[t_lfs_gitrename]                                 -- DISPLAY=:0.0
+[t_lfs_gitrename]                                 -- HOSTNAME=LUSD25224
+[t_lfs_gitrename]                                 -- PUBLIC=C:\Users\Public
+[t_lfs_gitrename]                                 -- OLDPWD=/c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_test/proj2
+[t_lfs_gitrename]                                 -- CONFIG_SITE=/etc/config.site
+[t_lfs_gitrename]                                 -- EXEPATH=C:\Program Files\Git
+[t_lfs_gitrename]                                 -- SmsSiteCode=DR0
+[t_lfs_gitrename]                                 -- UATDATA=C:\WINDOWS\CCM\UATData\D9F8C395-CAB8-491d-B8AC-179A1FE1BE77
+[t_lfs_gitrename]                                 -- MSYSTEM_CHOST=x86_64-w64-mingw32
+[t_lfs_gitrename]                                 -- NIDAQmxSwitchDir=c:\Program Files (x86)\National Instruments\NI-DAQ\Switch\
+[t_lfs_gitrename]                                 -- SAPLOGON_INI_FILE=C:\Windows\SAPLOGON.INI
+[t_lfs_gitrename]                                 -- USERNAME=nguyennh
+[t_lfs_gitrename]                                 -- ci_proxy=http://zscaler.draeger.com:80
+[t_lfs_gitrename]                                 -- JAVA_HOME=C:\Program Files (x86)\Java\jre1.8
+[t_lfs_gitrename]                                 -- LOGONSERVER=\\SDAPAT9920
+[t_lfs_gitrename]                                 -- PROCESSOR_ARCHITECTURE=AMD64
+[t_lfs_gitrename]                                 -- APR_ICONV_PATH=C:\Program Files (x86)\Subversion\iconv
+[t_lfs_gitrename]                                 -- MYXILINX=C:\Xilinx\14.7\ISE_DS\ISE_XCN14003_patch
+[t_lfs_gitrename]                                 -- _arg=runBash ./cijobs.sh . test lfs_gitrename
+[t_lfs_gitrename]                                 -- _ciutils=C:\projects\git\general_jenkins_jobs\ciUtils.cmd
+[t_lfs_gitrename]                                 -- LOCALAPPDATA=C:\Users\nguyennh\AppData\Local
+[t_lfs_gitrename]                                 -- CFGR_INI =C:\Mentorgraphics\configurator.ini
+[t_lfs_gitrename]                                 -- COMPUTERNAME=LUSD25224
+[t_lfs_gitrename]                                 -- PIP_INDEX_URL=https://andover-artifactory.draeger.com/artifactory/api/pypi/pypi/simple
+[t_lfs_gitrename]                                 -- !::=::\
+[t_lfs_gitrename]                                 -- DEFLOGDIR=C:\ProgramData\McAfee\Endpoint Security\Logs
+[t_lfs_gitrename]                                 -- SYSTEMDRIVE=C:
+[t_lfs_gitrename]                                 -- USERPROFILE=C:\Users\nguyennh
+[t_lfs_gitrename]                                 -- PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+[t_lfs_gitrename]                                 -- cacheL2=\\att.corp.draeger.global\distribution\cached
+[t_lfs_gitrename]                                 -- SYSTEMROOT=C:\WINDOWS
+[t_lfs_gitrename]                                 -- USERDOMAIN_ROAMINGPROFILE=CORP
+[t_lfs_gitrename]                                 -- PROCESSOR_IDENTIFIER=Intel64 Family 6 Model 158 Stepping 10, GenuineIntel
+[t_lfs_gitrename]                                 -- MINGW_PACKAGE_PREFIX=mingw-w64-x86_64
+[t_lfs_gitrename]                                 -- PWD=/c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_test/proj2
+[t_lfs_gitrename]                                 -- HOME=/c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys
+[t_lfs_gitrename]                                 -- TMP=/tmp
+[t_lfs_gitrename]                                 -- MSYSTEM_PREFIX=/mingw64
+[t_lfs_gitrename]                                 -- VS100COMNTOOLS=C:\Program Files (x86)\Microsoft Visual Studio 10.0\Common7\Tools\
+[t_lfs_gitrename]                                 -- OneDrive=C:\Users\nguyennh\OneDrive
+[t_lfs_gitrename]                                 -- GIT_CONFIG_NOSYSTEM=1
+[t_lfs_gitrename]                                 -- !C:=C:\projects\git\general_jenkins_jobs\gitsyncgitsvn
+[t_lfs_gitrename]                                 -- PROCESSOR_REVISION=9e0a
+[t_lfs_gitrename]                                 -- TMPDIR=/tmp
+[t_lfs_gitrename]                                 -- USERDNSDOMAIN=CORP.DRAEGER.GLOBAL
+[t_lfs_gitrename]                                 -- PROMPT=$P$G
+[t_lfs_gitrename]                                 -- NUMBER_OF_PROCESSORS=12
+[t_lfs_gitrename]                                 -- PID=32600
+[t_lfs_gitrename]                                 -- ProgramW6432=C:\Program Files
+[t_lfs_gitrename]                                 -- GIT_LFS_PATH=C:\Program Files\Git LFS
+[t_lfs_gitrename]                                 -- FILTER_BRANCH_SQUELCH_WARNING=1
+[t_lfs_gitrename]                                 -- COMSPEC=C:\WINDOWS\system32\cmd.exe
+[t_lfs_gitrename]                                 -- APPDATA=C:\Users\nguyennh\AppData\Roaming
+[t_lfs_gitrename]                                 -- DEF_ENV_URL=https://att.corp.draeger.global/Distribution/Config/env/developer.txt
+[t_lfs_gitrename]                                 -- SHELL=/usr/bin/bash
+[t_lfs_gitrename]                                 -- TERM=xterm-256color
+[t_lfs_gitrename]                                 -- __PSLockDownPolicy=0
+[t_lfs_gitrename]                                 -- WINDIR=C:\WINDOWS
+[t_lfs_gitrename]                                 -- MINGW_CHOST=x86_64-w64-mingw32
+[t_lfs_gitrename]                                 -- ProgramData=C:\ProgramData
+[t_lfs_gitrename]                                 -- SHLVL=6
+[t_lfs_gitrename]                                 -- PLINK_PROTOCOL=ssh
+[t_lfs_gitrename]                                 -- PROMPT_COMMAND=WORK=${PWD/#$HOME/\~};WINTITLE=${WORK};if [ ${#WINTITLE} -gt 17 ]; then   WINTITLE=${WINTITLE:0:5}..${WINTITLE: -10};fi;if [ ${#WORK} -gt 25 ]; then   WORK=${WORK:0:5}..${WORK: -18};fi;BRANCH=`git branch 2> /dev/null | sed -e "/^[^*]/d" -e "s/* \(.*\)/ (\1)/"`;if [ ${#BRANCH} -gt 25 ]; then   BRANCH=" (${BRANCH:2:5}..${BRANCH: -16}";fi;PS1="\[\e]0;${WINTITLE}\a\]\[\e[32m\]\h \[\e[34m\]${WORK}\[\e[0m\]${BRANCH}\n\[\e[1m\](\!)\$ \[\e[0m\]";
+[t_lfs_gitrename]                                 -- ACLOCAL_PATH=/mingw64/share/aclocal:/usr/share/aclocal
+[t_lfs_gitrename]                                 -- PROGRAMFILES=C:\Program Files
+[t_lfs_gitrename]                                 -- MSYS=enable_pcon
+[t_lfs_gitrename]                                 -- MANPATH=/mingw64/local/man:/mingw64/share/man:/usr/local/man:/usr/share/man:/usr/man:/share/man
+[t_lfs_gitrename]                                 -- ORIGINAL_TEMP=C:/Develop/Install/tmp
+[t_lfs_gitrename]                                 -- ORIGINAL_TMP=C:/Develop/Install/tmp
+[t_lfs_gitrename]                                 -- ALLUSERSPROFILE=C:\ProgramData
+[t_lfs_gitrename]                                 -- TEMP=/tmp
+[t_lfs_gitrename]                                 -- NO_XILINX_DATA_LICENSE=HIDDEN
+[t_lfs_gitrename]                                 -- DriverData=C:\Windows\System32\Drivers\DriverData
+[t_lfs_gitrename]                                 -- MSYSTEM=MINGW64
+[t_lfs_gitrename]                                 -- MINGW_PREFIX=/mingw64
+[t_lfs_gitrename]                                 -- SESSIONNAME=Console
+[t_lfs_gitrename]                                 -- ProgramFiles(x86)=C:\Program Files (x86)
+[t_lfs_gitrename]                                 -- PATH=.:/c/projects/my_scripts/:/c/projects/bin:/mingw64/bin:/usr/local/bin:/usr/bin:/bin:/mingw64/bin:/usr/bin:/c/Develop/projects/bin:/c/Program Files (x86)/VMware/VMware Player/bin:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/c/Program Files (x86)/Java/jre1.8/bin:/c/Program Files/ServiceNow:/c/Program Files (x86)/WinMerge:/c/Draeger/Apps/MATLAB/R2019b/bin:/c/Program Files/Git LFS:/c/HashiCorp/Vagrant/bin:/c/Program Files/TortoiseSVN/bin:/c/Program Files/Microsoft SQL Server/130/Tools/Binn:/c/Program Files/Collaborator Client:/c/Program Files/doxygen/bin:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/cmd:/mingw64/bin:/usr/bin:/c/Program Files (x86)/Subversion/bin:/c/Program Files/TortoiseGit/bin:/c/Python27:/c/Users/nguyennh/AppData/Local/Microsoft/WindowsApps:/usr/bin/vendor_perl:/usr/bin/core_perl:/c/projects/git/exts/git-tools
+[t_lfs_gitrename]                                 -- BASH_CMD=C:\Program Files\Git\usr\bin\bash.exe
+[t_lfs_gitrename]                                 -- HOMEDRIVE=C:
+[t_lfs_gitrename]                                 -- PKG_CONFIG_PATH=/mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+[t_lfs_gitrename]                                 -- INFOPATH=/usr/local/info:/usr/share/info:/usr/info:/share/info
+[t_lfs_gitrename]                                 -- HOMEPATH=\Users\nguyennh
+[t_lfs_gitrename]                                 -- ORIGINAL_PATH=/mingw64/bin:/usr/bin:/c/Develop/projects/bin:/c/Program Files (x86)/VMware/VMware Player/bin:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/c/Program Files (x86)/Java/jre1.8/bin:/c/Program Files/ServiceNow:/c/Program Files (x86)/WinMerge:/c/Draeger/Apps/MATLAB/R2019b/bin:/c/Program Files/Git LFS:/c/HashiCorp/Vagrant/bin:/c/Program Files/TortoiseSVN/bin:/c/Program Files/Microsoft SQL Server/130/Tools/Binn:/c/Program Files/Collaborator Client:/c/Program Files/doxygen/bin:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/cmd:/mingw64/bin:/usr/bin:/c/Program Files (x86)/Subversion/bin:/c/Program Files/TortoiseGit/bin:/c/Python27:/c/Users/nguyennh/AppData/Local/Microsoft/WindowsApps
+[t_lfs_gitrename]                                 -- WDIR_EEVX_2_5=C:\projects\expedition\Mentor-Expedition-DxD\CorpStd\ini\EEVX.2.5;c:\MentorGraphics\ini\EEVX.2.5;R:\CorpStd\ini\EEVX.2.5;
+[t_lfs_gitrename]                                 -- VBOX_MSI_INSTALL_PATH=C:\Program Files\Oracle\VirtualBox\
+[t_lfs_gitrename]                                 -- NSPR_NATIVE_THREADS_ONLY=1
+[t_lfs_gitrename]                                 -- VS140COMNTOOLS=C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\Tools\
+[t_lfs_gitrename]                                 -- _=/usr/bin/env
+[t_lfs_gitrename]                               INFO >which git-lfs
+[t_lfs_gitrename]                                 -- /mingw64/bin/git-lfs
+[t_lfs_gitrename]                               INFO >git lfs env
+[t_lfs_gitrename]                                 -- git-lfs/2.13.3 (GitHub; windows amd64; go 1.16.2; git a5e65851)
+[t_lfs_gitrename]                                 -- git version 2.32.0.windows.2
+[t_lfs_gitrename]                                 --
+[t_lfs_gitrename]                                 -- Endpoint=file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git (auth=none)
+[t_lfs_gitrename]                                 -- LocalWorkingDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2
+[t_lfs_gitrename]                                 -- LocalGitDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git
+[t_lfs_gitrename]                                 -- LocalGitStorageDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git
+[t_lfs_gitrename]                                 -- LocalMediaDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git\lfs\objects
+[t_lfs_gitrename]                                 -- LocalReferenceDirs=
+[t_lfs_gitrename]                                 -- TempDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git\lfs\tmp
+[t_lfs_gitrename]                                 -- ConcurrentTransfers=8
+[t_lfs_gitrename]                                 -- TusTransfers=false
+[t_lfs_gitrename]                                 -- BasicTransfersOnly=false
+[t_lfs_gitrename]                                 -- SkipDownloadErrors=false
+[t_lfs_gitrename]                                 -- FetchRecentAlways=false
+[t_lfs_gitrename]                                 -- FetchRecentRefsDays=7
+[t_lfs_gitrename]                                 -- FetchRecentCommitsDays=0
+[t_lfs_gitrename]                                 -- FetchRecentRefsIncludeRemotes=true
+[t_lfs_gitrename]                                 -- PruneOffsetDays=3
+[t_lfs_gitrename]                                 -- PruneVerifyRemoteAlways=false
+[t_lfs_gitrename]                                 -- PruneRemoteName=origin
+[t_lfs_gitrename]                                 -- LfsStorageDir=C:\Develop\projects\git\general_jenkins_jobs\gitsyncgitsvn\tmp_Msys\git_test\proj2\.git\lfs
+[t_lfs_gitrename]                                 -- AccessDownload=none
+[t_lfs_gitrename]                                 -- AccessUpload=none
+[t_lfs_gitrename]                                 -- DownloadTransfers=basic,lfs-standalone-file
+[t_lfs_gitrename]                                 -- UploadTransfers=basic,lfs-standalone-file
+[t_lfs_gitrename]                                 -- GIT_CONFIG_NOSYSTEM=1
+[t_lfs_gitrename]                                 -- GIT_EXEC_PATH=C:/Program Files/Git/mingw64/libexec/git-core
+[t_lfs_gitrename]                                 -- GIT_LFS_PATH=C:\Program Files\Git LFS
+[t_lfs_gitrename]                                 -- git config filter.lfs.process = "git-lfs filter-process"
+[t_lfs_gitrename]                                 -- git config filter.lfs.smudge = "git-lfs smudge -- %f"
+[t_lfs_gitrename]                                 -- git config filter.lfs.clean = "git-lfs clean -- %f"
+[t_lfs_gitrename] 02:11:05  [      sync:303 ]   INFO >which git
+[t_lfs_gitrename]                                 -- /mingw64/bin/git
+[t_lfs_gitrename]                               INFO >git version
+[t_lfs_gitrename]                                 -- git version 2.32.0.windows.2
+[t_lfs_gitrename]                               INFO >git config --show-origin --list
+[t_lfs_gitrename]                                 -- file:C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/.gitconfig        user.email=test@email.com
+[t_lfs_gitrename]                                 -- file:C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/.gitconfig        user.name=tester
+[t_lfs_gitrename]                                 -- file:.git/config   core.repositoryformatversion=0
+[t_lfs_gitrename]                                 -- file:.git/config   core.filemode=false
+[t_lfs_gitrename]                                 -- file:.git/config   core.bare=false
+[t_lfs_gitrename]                                 -- file:.git/config   core.logallrefupdates=true
+[t_lfs_gitrename]                                 -- file:.git/config   core.symlinks=false
+[t_lfs_gitrename]                                 -- file:.git/config   core.ignorecase=true
+[t_lfs_gitrename]                                 -- file:.git/config   remote.origin.url=file:///c/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/git_repo/proj2.git
+[t_lfs_gitrename]                                 -- file:.git/config   remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+[t_lfs_gitrename]                                 -- file:.git/config   svn-remote.svn.rewriteroot=
+[t_lfs_gitrename]                                 -- file:.git/config   svn-remote.svn.url=svn://localhost/C:/projects/git/general_jenkins_jobs/gitsyncgitsvn/tmp_Msys/svn_repo/proj2
+[t_lfs_gitrename]                                 -- file:.git/config   svn-remote.svn.fetch=:refs/remotes/svn-proj2
+[t_lfs_gitrename]                                 -- file:.git/config   branch.svn/lfs/proj2.remote=origin
+[t_lfs_gitrename]                                 -- file:.git/config   branch.svn/lfs/proj2.merge=refs/heads/svn/lfs/proj2
+[t_lfs_gitrename]                                 -- file:.git/config   branch.master.remote=origin
+[t_lfs_gitrename]                                 -- file:.git/config   branch.master.merge=refs/heads/master
+[t_lfs_gitrename]                                 -- file:.git/config   filter.lfs.clean=git-lfs clean -- %f
+[t_lfs_gitrename]                                 -- file:.git/config   filter.lfs.smudge=git-lfs smudge -- %f
+[t_lfs_gitrename]                                 -- file:.git/config   filter.lfs.process=git-lfs filter-process
+[t_lfs_gitrename]                                 -- file:.git/config   filter.lfs.required=true
+[---------------] 02:11:07  [ sync_test:113 ]   NOTE FAIL test_lfs_gitrename (exit with 1)
+
+[---------------] 02:11:08  [ sync_test:130 ]  ERROR Following 1 fail(s) out of 1 ran tests:
+                                -- test_lfs_gitrename (exit with 1)
+[---------------] 02:11:08  [ sync_test:143 ]   NOTE 1 FAIL out of 1 ran tests
+/c/projects/git/general_jenkins_jobs/gitsyncgitsvn
+Stop svn server
+WARN: %http_proxy% or %ci_proxy% may need
+WARN: %cacheL2% or %cacheL3% may need
