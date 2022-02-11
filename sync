@@ -378,7 +378,7 @@ init_fetchNewSvnFolder()
     if [[ "$use_lfs_migrate"=="no" ]]; then
       git filter-branch --prune-empty -f --index-filter '
         cp "'${tmp}'"/.git* .
-        git add .git*
+        git add -v -- .git*
         ' -- "${lfsBranch}" 2> "$filterLog"
       exitIf "$? != 0 && $? != 2" $? \
         "Failed to apply LFS settings to $lfsBranch! due to:" '
@@ -470,7 +470,7 @@ syncSVNtoGIT()
           git lfs track "$f"
         done
 
-      git add .gitattributes
+      git add -v -- .gitattributes
       cp .gitattributes "'"${tmp}"'/.gitattributes"
       ' -- "${svnBranch}".."${tryLfsMerge}" 2> "$filterLog"
     exitIf "$? != 0 && $? != 2" $? \
@@ -521,13 +521,31 @@ syncSVNtoGIT()
       myExit 1
     fi
 
-    git status --no-renames --porcelain > "$tmp/gitStatus"
-    cat "$tmp/gitStatus"
+    # Get status in XY PATH format
+    # where X is staged/index status, Y is work tree status
+    git status --no-renames --porcelain -z | sed 's/\x0/\n/g' >"$tmp/gitStatus"
+    DBG_EVAL 'cat "$tmp/gitStatus"'
 
-    # Conflict ".D"
-    # * A file deleted from svn
+    rm -f "$tmp/rebaseWorkAmend"
+    # Conflict "*D" - Deleted by theirs (SVN) 
+    # * For example, A file modified from GIT but remove by SVN
     sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
-      | while read f; do git rm -f "$f"; done
+      | while read f; do 
+        git rm -f -- "$f"
+        echo >"$tmp/rebaseWorkAmend"
+      done
+
+    # Take any other changes from SVN
+    sed -ne "s/^[^ ][^D ] \(.*\)$/\1/p" "$tmp/gitStatus" \
+      | while read f; do
+      git checkout $newHead -- "$f"
+      git add -v -- "$f"
+      echo >"$tmp/rebaseWorkAmend"
+    done
+
+    if [[ -f "$tmp/rebaseWorkAmend" ]]; then
+      git commit -C $newHead
+    fi
 
     # Code use to debug this process
     if [ "$prompt" == "yes" ]; then
@@ -669,22 +687,22 @@ syncGITtoSVN()
   exitIfErr 1 "Cannot create branch from $gitBranch"
 
   echo '
-    rm -f "'"$tmp\rebaseWorkAmend"'"
+    rm -f "'"$tmp/rebaseWorkAmend"'"
     find . -iname ".gitmodules" -type f | while read ff; do
       pushd "`dirname "$ff"`"
       sed -ne "s/^[\t ]*path *= *\(.*\) *$/\1/p" .gitmodules \
         | while read f; do
           rm -rf "$f"
-          git add -v "$f"
+          git add -v -- "$f"
         done
-      echo >"'"$tmp\rebaseWorkAmend"'"
+      echo >"'"$tmp/rebaseWorkAmend"'"
       popd
     done
 
     find . -type f -iname ".git*" ! -iname ".gitmodules" \
       | while read ff; do
-        git rm -f "$ff"
-        echo >"'"$tmp\rebaseWorkAmend"'"
+        git rm -f -- "$ff"
+        echo >"'"$tmp/rebaseWorkAmend"'"
       done
   ' > "$tmp/rebaseWork"
 
@@ -692,10 +710,10 @@ syncGITtoSVN()
     git lfs uninstall --local 2>/dev/null
     echo '
       git diff "'"$svnRemote"'" --cached \
-        --name-only --diff-filter=d > "'"$tmp\rebaseWorkDiff"'"
+        --name-only --diff-filter=d > "'"$tmp/rebaseWorkDiff"'"
       git diff "'"$svnRemote"'" HEAD~1 \
-        --name-only --diff-filter=d >> "'"$tmp\rebaseWorkDiff"'"
-      cat "'"$tmp\rebaseWorkDiff"'" \
+        --name-only --diff-filter=d >> "'"$tmp/rebaseWorkDiff"'"
+      cat "'"$tmp/rebaseWorkDiff"'" \
         | while read f; do
         head -2 "$f" | sed -ne "s/^oid sha256:\([^ ]*\)/\1/p" \
           | while read ref; do
@@ -710,8 +728,8 @@ syncGITtoSVN()
             printf "\n  Remove LFS pointer on $f\n"
           fi
           cp -f "$ref" "$f"
-          git add "$f"
-          echo >"'"$tmp\rebaseWorkAmend"'"
+          git add -v -- "$f"
+          echo >"'"$tmp/rebaseWorkAmend"'"
           break
         done
       done
@@ -719,7 +737,7 @@ syncGITtoSVN()
   fi
 
   echo '
-    if [[ -f "'"$tmp\rebaseWorkAmend"'" ]]; then
+    if [[ -f "'"$tmp/rebaseWorkAmend"'" ]]; then
       git commit --amend --allow-empty -C HEAD
 
       # Code use to debug this process
@@ -763,22 +781,23 @@ syncGITtoSVN()
       fi
     fi
 
-    git status --no-renames --porcelain > "$tmp/gitStatus"
-    cat "$tmp/gitStatus"
+    # Get status in XY PATH format
+    # where X is staged/index status, Y is work tree status
+    git status --no-renames --porcelain -z | sed 's/\x0/\n/g' >"$tmp/gitStatus"
+    DBG_EVAL 'cat "$tmp/gitStatus"'
 
-    rm -f "$tmp\rebaseWorkAmend"
-    # Conflict "*D" - " Deleted by theirs (master)
-    # * A file added from SVN but remove by master
+    rm -f "$tmp/rebaseWorkAmend"
+    # Conflict "*D" - Deleted by theirs (GIT)
+    # * For example, A file modified from SVN but remove by GIT
     sed -ne "s/^.D \(.*\)$/\1/p" "$tmp/gitStatus" \
       | while read f; do
-        rm -f "$f"
-        git add -v "$f"
-        echo >"$tmp\rebaseWorkAmend"
+        git rm -f -- "$f"
+        echo >"$tmp/rebaseWorkAmend"
       done
 
     # Handle some cases where the item were submodule and had been
     # excluded or deleted from SVN branches
-    sed -ne "s/^D. \(.*\)$/\1/p" "$tmp/gitStatus" \
+    sed -ne "s/^D[^ ] \(.*\)$/\1/p" "$tmp/gitStatus" \
       | while read f; do
         # Obtain the item type
         local type=`git ls-tree $newHead -- "$f" \
@@ -790,19 +809,19 @@ syncGITtoSVN()
         else
           git checkout $newHead -- "$f"
         fi
-        git add -v "$f"
-        echo >"$tmp\rebaseWorkAmend"
+        git add -v -- "$f"
+        echo >"$tmp/rebaseWorkAmend"
       done
 
-    # Take any other changes from master
-    sed -ne "s/^[^D][^D] \(.*\)$/\1/p" "$tmp/gitStatus" \
+    # Take any other changes from GIT
+    sed -ne "s/^[^D][^D ] \(.*\)$/\1/p" "$tmp/gitStatus" \
       | while read f; do
       git checkout $newHead -- "$f"
-      git add -v "$f"
-      echo >"$tmp\rebaseWorkAmend"
+      git add -v -- "$f"
+      echo >"$tmp/rebaseWorkAmend"
     done
 
-    if [[ -f "$tmp\rebaseWorkAmend" ]]; then
+    if [[ -f "$tmp/rebaseWorkAmend" ]]; then
       git commit -C $newHead
     fi
 
@@ -823,7 +842,7 @@ syncGITtoSVN()
   ' --index-filter '
     git ls-files --cached --full-name | grep -e "^\(.*/\)\?.gitmodules$" \
       | while read f; do
-        git rm --cached -f "$f"
+        git rm --cached -f -- "$f"
       done
   ' --prune-empty -f -- "$svnRemote".."$tryMerge"
   exitIf "$? != 0 && $? != 2" $? \
