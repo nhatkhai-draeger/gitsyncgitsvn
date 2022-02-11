@@ -51,6 +51,12 @@ Options:
   -n, --no-svnCommit
       Use to do a dry run dcommit on SVN.
 
+  -np, --no-git-push
+      Use to do a dry run without push update to remote
+
+  -nf, --no-git-fetch
+      Run without obtain update from remote
+
   -p, --prompt
       Will stop a major point and ask for check before continue.
 
@@ -74,24 +80,26 @@ setDefaultSettings
 
 # Go through all arguments
 while [[ ! -z "$1" ]]; do
-  if [[ $1 =~ ^-h$|^--help$         ]]; then showHelp; return; fi
+  if [[ $1 =~ ^-h$|^--help$          ]]; then showHelp; return; fi
 
-  if [[ $1 =~ ^--authors$           ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
-  if [[ $1 =~ ^--gitUrl$            ]]; then gitURL="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--ignore-paths       ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
-  if [[ $1 =~ ^--init$              ]]; then init=("$2");                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnPwd$            ]]; then svnPwd="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnUrl$            ]]; then svnURL="$2";                 shift; shift; continue; fi
-  if [[ $1 =~ ^--svnUser$           ]]; then svnUser="$2";                shift; shift; continue; fi
+  if [[ $1 =~ ^--authors$            ]]; then authorFile=`realpath "$2"`;  shift; shift; continue; fi
+  if [[ $1 =~ ^--gitUrl$             ]]; then gitURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--ignore-paths        ]]; then svnIgnorePaths="$2";         shift; shift; continue; fi
+  if [[ $1 =~ ^--init$               ]]; then init=("$2");                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnPwd$             ]]; then svnPwd="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUrl$             ]]; then svnURL="$2";                 shift; shift; continue; fi
+  if [[ $1 =~ ^--svnUser$            ]]; then svnUser="$2";                shift; shift; continue; fi
 
-  if [[ $1 =~ ^-b$|^--branch$       ]]; then gitBranch="$2";              shift; shift; continue; fi
-  if [[ $1 =~ ^-d$|^--debug$        ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
-  if [[ $1 =~ ^-e$|^--email$        ]]; then emailFile=`realpath "$2"`;   shift; shift; continue; fi
-  if [[ $1 =~ ^-m$|^--mergeSync$    ]]; then rebaseSync="no";             shift;        continue; fi
-  if [[ $1 =~ ^-n$|^--no-svnCommit$ ]]; then dcommitOpt+=("-n");          shift;        continue; fi
-  if [[ $1 =~ ^-p$|^--prompt$       ]]; then prompt="yes";                shift;        continue; fi
-  if [[ $1 =~ ^-r$|^--rebaseSync$   ]]; then rebaseSync="yes";            shift;        continue; fi
-  if [[ $1 =~ ^-s$|^--strategy$     ]]; then mergeOpt="$2";               shift; shift; continue; fi
+  if [[ $1 =~ ^-b$|^--branch$        ]]; then gitBranch="$2";              shift; shift; continue; fi
+  if [[ $1 =~ ^-d$|^--debug$         ]]; then LOG_LEVEL=$LOG_LEVEL_DEBUG;  shift;        continue; fi
+  if [[ $1 =~ ^-e$|^--email$         ]]; then emailFile=`realpath "$2"`;   shift; shift; continue; fi
+  if [[ $1 =~ ^-m$|^--mergeSync$     ]]; then rebaseSync="no";             shift;        continue; fi
+  if [[ $1 =~ ^-n$|^--no-svnCommit$  ]]; then dcommitOpt+=("-n");          shift;        continue; fi
+  if [[ $1 =~ ^-np$|^--no-git-push$  ]]; then noGitPush="yes"              shift;        continue; fi
+  if [[ $1 =~ ^-nf$|^--no-git-fetch$ ]]; then noGitFetch="yes"             shift;        continue; fi
+  if [[ $1 =~ ^-p$|^--prompt$        ]]; then prompt="yes";                shift;        continue; fi
+  if [[ $1 =~ ^-r$|^--rebaseSync$    ]]; then rebaseSync="yes";            shift;        continue; fi
+  if [[ $1 =~ ^-s$|^--strategy$      ]]; then mergeOpt="$2";               shift; shift; continue; fi
 
   if [[ $1 =~ ^-u$|^--use_migrate$  ]]; then use_lfs_migrate="yes";       shift;        continue; fi
 
@@ -157,6 +165,8 @@ setDefaultSettings()
 
   svnURL=
   dcommitOpt=("--rmdir")
+  noGitFetch=
+  noGitPush=
   svnAccount=()
 
   local temp=`git config --local --get svn-remote.svn.url 2> /dev/null`
@@ -396,7 +406,8 @@ init_fetchNewSvnFolder()
   retry 4 git branch -f "$gitBranch" "$lfsBranch"
   exitIfErr 1 "Cannot set $gitBranch to $lfsBranch"
 
-  retry 4 git push "$gitRemote" -u -f "$lfsBranch" "$gitBranch"
+  [[ "$noGitPush" ]] || retry 4 \
+    git push "$gitRemote" -u -f "$lfsBranch" "$gitBranch"
   exitIfErr 1 "Cannot push $lfsBranch and/or $gitBranch into $gitRemote"
 
 }
@@ -417,7 +428,8 @@ syncSVNtoGIT()
 
   if [[ $svnOldSHA1 == $svnNewSHA1 ]]; then
     INFO "Make sure $lfsBranch sync with the server"
-    retry 4 git push "$gitRemote" -u -f "$lfsBranch"
+    [[ "$noGitPush" ]] || retry 4 \
+      git push "$gitRemote" -u -f "$lfsBranch"
     exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
 
     INFO "No new SVN commits to work on."
@@ -509,7 +521,7 @@ syncSVNtoGIT()
       myExit 1
     fi
 
-    git status --porcelain > "$tmp/gitStatus"
+    git status --no-renames --porcelain > "$tmp/gitStatus"
     cat "$tmp/gitStatus"
 
     # Conflict ".D"
@@ -550,7 +562,8 @@ syncSVNtoGIT()
     read -p "Check before push result into server...."
   fi
 
-  retry 4 git push "$gitRemote" -u -f "$lfsBranch"
+  [[ "$noGitPush" ]] || retry 4 \
+    git push "$gitRemote" -u -f "$lfsBranch"
   exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
 }
 
@@ -566,7 +579,7 @@ adjGitBranch()
   exitIfErr 1 "Cannot checkout $svnBranch."
 
   INFO "***** Update $gitBranch from git server"
-  retry 4 git fetch $gitRemote "$gitBranch"
+  [[ "$noGitFetch" ]] || retry 4 git fetch $gitRemote "$gitBranch"
   exitIfErr 1 "Cannot pull $gitBranch from $gitRemote"
 
   retry 4 git branch -f "$gitBranch" "$gitRemote/$gitBranch"
@@ -632,7 +645,8 @@ adjGitBranch()
   if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_REBASE ]]; then
     source $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_REBASE
   fi
-  retry 4 git push "$gitRemote" -u --force-with-lease "$gitBranch"
+  [[ "$noGitPush" ]] || retry 4 \
+    git push "$gitRemote" -u --force-with-lease "$gitBranch"
   if [[ $? != 0 ]]; then
     WARN "Cannot push $gitBranch. It Ok, if it had changed on remote."
     WARN "Going to try again..."
@@ -749,7 +763,7 @@ syncGITtoSVN()
       fi
     fi
 
-    git status --porcelain > "$tmp/gitStatus"
+    git status --no-renames --porcelain > "$tmp/gitStatus"
     cat "$tmp/gitStatus"
 
     rm -f "$tmp\rebaseWorkAmend"
@@ -914,10 +928,12 @@ syncGITtoSVN()
   if [[ -f $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_MERGE ]]; then
     source $testdir/.SYNC_TEST_MASTER_CHANGE_WHILE_MERGE
   fi
-  retry 4 git push $gitRemote -u -f "$lfsBranch"
+  [[ "$noGitPush" ]] || retry 4 \
+    git push $gitRemote -u -f "$lfsBranch"
   exitIfErr 1 "Cannot push $lfsBranch to $gitRemote"
 
-  retry 4 git push $gitRemote -u "$gitBranch"
+  [[ "$noGitPush" ]] || retry 4 \
+    git push $gitRemote -u "$gitBranch"
   if [[ $? != 0 ]]; then
     WARN "Cannot push $gitBranch. It Ok if it had changed on remote."
     WARN "Going to try again..."
