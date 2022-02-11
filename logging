@@ -17,7 +17,7 @@ LOG_LEVEL_DEBUG=4
 
 # There are logging configuration variables for display on console
 if [[ -z ${LOG_PREFIX+x} ]]; then
-   LOG_DEBUG="\e[1m\e[47mDEBUG"
+   LOG_DEBUG="\e[1m\e[90mDEBUG"
     LOG_INFO=" \e[1mINFO"
     LOG_NOTE=" \e[1m\e[42m\e[97mNOTE\e[0m\e[1m"
     LOG_WARN=" \e[1m\e[43m\e[97mWARN\e[0m\e[1m"
