@@ -30,17 +30,15 @@ pipeline
   {
     // Checkout the repository. Install Windows Git if the agent machine
     // don't have git installed
-    stage('checkout') { steps
+    stage('checkout') { steps { script
     {
       writeFile file:CIUTILS, text:readTrusted(CIUTILS).replace('\n','\r\n')
-      retry(7) { sleep(binding.variables.putIfAbsent('delay', 20)?:0)
-        bat "$CIUTILS gitFetchCache" }
-      script { readProperties(file: ".ret").each { k, v -> env[k]=v } 
-        env.PATH = "$env.GIT_INST_DEF;$env.PATH"
-      }
+      st=0; retry(7) { sleep(st); st=20; bat "$CIUTILS gitFetchCache" }
+      readProperties(file: ".ret").each { k, v -> env."$k"=v } 
+      env.PATH = "$env.GIT_INST_DEF;$env.PATH"
 
       checkout scm: scm
-    } /*steps*/ } /*stage*/
+    } } /*steps*/ } /*stage*/
 
     stage("main") { parallel
     {
