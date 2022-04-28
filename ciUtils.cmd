@@ -231,7 +231,7 @@ REM
                         && SET "cmdFile=%%~nxa" ^
                         && SET "cmdLong=%%~dfa" ^
                         && SET "cmdExt=%%~xa"
-  ECHO %cmdLong% %opts%
+  ECHO "%cmdLong%" %opts%
   PUSHD "%cmdPath%" || GOTO :EOF
   IF "%cmdExt%"=="" SET cmdExt=.
   SET PATHEXT=%PATHEXT%;%cmdExt%
@@ -261,7 +261,9 @@ REM
   CALL :_getPID
   DEL /F .%PID%.runOnce 2>/NUL
   :_runOnce_loop
-    (ECHO %~1)>> .%PID%.runOnce
+    SET "_arg=%~1"
+    CALL :escapeVar _arg
+    (ECHO %_arg%)>> .%PID%.runOnce
     SHIFT
     IF NOT "%~1"=="" GOTO :_runOnce_loop
 
@@ -302,7 +304,9 @@ REM
   CALL :_getPID
   DEL /F .%PID%.runCmdOnce 2>/NUL
   :_runCmdOnce_loop
-    (ECHO %~1)>> .%PID%.runCmdOnce
+    SET "_arg=%~1"
+    CALL :escapeVar _arg
+    (ECHO %_arg%)>> .%PID%.runCmdOnce
     SHIFT
     IF NOT "%~1"=="" GOTO :_runCmdOnce_loop
 
@@ -632,7 +636,7 @@ REM
   )
 
   SET opts=%opts% -P %cygMods%
-  ECHO %cygSetup% %opts%
+  ECHO "%cygSetup%" %opts%
   "%cygSetup%" %opts%
   IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
@@ -731,7 +735,8 @@ REM
   SET "outFile=%outFile:!=+5%"
   SET "outFile=%outFile:^^=+6%"
   SET "outFile=%outFile:&=+7%"
-
+  SET "outFile=%outFile:\\=\%"
+  
   REM Check if the file already exist locally, then avoid download
   IF "%cacheL1%" == "" FOR %%a IN ("%TMP%") DO SET cacheL1=%%~sa\.cache
   FOR %%a IN ("%cacheL1%\%outFile%") DO (
@@ -758,20 +763,19 @@ REM
 
     COPY /Y "%l2file%" "%l1file%" >/NUL 2>&1 ^
       || ENDLOCAL && SET "_ret=" && GOTO :EOF
-    ECHO "Copy %filename% from %cacheL2% to %l1file%"
+    ECHO Copy "%filename%" from "%cacheL2%" to "%l1file%"
 
     SET _arg="%l3file%" -T "%l1file%" --insecure -x ""
     IF NOT "%cacheL3_key%" == "" SET _arg=%_arg% "-u%cacheL3_key%" 
     CALL :escPercent _arg
     IF NOT "%l3file%" == "" CALL :runThread %_ciutils% doCurl %_arg% ^
-      && ECHO Save %filename% into %l3file%
+      && ECHO Save "%filename%" into "%l3file%"
 
     ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
   :_download_SkipL2
 
   REM Try to take file from cache L3
   IF "%l3file%"=="" GOTO :_download_SkipL3
-    SET l3file=%cacheL3%/%outFile%
     REM Check is the file exist on server
     SET _arg="%l3file%" -o nul --silent --fail -r 0-0 -m 2 --insecure -x ""
     CALL :escPercent _arg
@@ -779,39 +783,46 @@ REM
     IF ERRORLEVEL 1 GOTO :_download_SkipL3
 
     REM Try to download from cacheL3
-    SET _arg="%l3file%" -o "%l1file%.dl" --fail --insecure -x ""
+    SET _arg="%l3file%" -o "%l1file%.dl" ^
+      --fail --insecure -x "" %curl_opts%
     CALL :escPercent _arg
     CALL :doCurl %_arg%
-    %curl_opts%
     IF ERRORLEVEL 1 GOTO :_download_SkipL3
     MOVE /Y "%l1file%.dl" "%l1file%" >/NUL ^
       || ENDLOCAL && SET "_ret=" && GOTO :EOF
-    ECHO Download %filename% from %cacheL3% to %l1file%
+    ECHO Download "%filename%" from "%cacheL3%" to "%l1file%"
 
     REM Update cache L2
     IF NOT "%l2file%" == "" COPY /Y "%l1file%" "%l2file%" >/NUL 2>&1 ^
-      && ECHO "Save %filename% into %l2file%
+      && ECHO Save "%filename%" into "%l2file%"
     ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
   :_download_SkipL3
 
   REM Try to download the file
-  SET _arg="%url%" -o "%l1file%.dl" --fail --insecure --location %curl_opts%
+  REM
+  REM Windows Curl seem to not able to handle the long file name, so we use
+  REM short file name when pass into curl
+  ECHO.> "%l1file%.dl"
+  FOR %%a IN ("%l1file%.dl") DO SET _l1_dls=%%~sa
+  SET _arg="%url%" -o "%_l1_dls%" --fail --location %curl_opts%
+  
   CALL :escPercent _arg
   CALL :doCurl %_arg%
   IF ERRORLEVEL 1 ENDLOCAL && SET "_ret=" && EXIT /b %ERRORLEVEL%
   MOVE /Y "%l1file%.dl" "%l1file%" >/NUL ^
     || ENDLOCAL && SET "_ret=" && GOTO :EOF
-  ECHO Download %filename% to %l1file%
+  ECHO Download "%filename%" to "%l1file%"
 
   REM Update cache L2 & L3
   IF NOT "%l2file%" == "" COPY /Y "%l1file%" "%l2file%" >/NUL 2>&1 ^
-    && ECHO Save %filename% into %l2file%
+    && ECHO Save "%filename%" into "%l2file%"
 
-  SET _arg="%l3file%" -T "%l1file%" --insecure -x ""
+  FOR %%a IN ("%l1file%") DO SET _l1s=%%~sa
+  SET _arg="%l3file%" -T "%_l1s%" --insecure -x ""
   IF NOT "%cacheL3_key%" == "" SET _arg=%_arg% "-u%cacheL3_key%" 
   CALL :escPercent _arg
   IF NOT "%l3file%" == "" CALL :runThread %_ciutils% doCurl %_arg% ^
-    && ECHO Save %filename% into %l3file%
+    && ECHO Save "%filename%" into "%l3file%"
 
 ENDLOCAL && SET "_ret=%l1file%" && EXIT /b 0
 
@@ -849,6 +860,7 @@ REM
     IF NOT EXIST "%cacheL1%" MKDIR "%cacheL1%"
 
     SET CURL=!cacheL1!/curl/I386/curl.exe
+    SET "PATH=%SystemRoot%\System32;%PATH%"
     IF NOT EXIST "!CURL!" (
       ECHO Extract the CAB Package and use it
       PUSHD "!cacheL1!"
@@ -860,7 +872,7 @@ REM
       IF NOT EXIST curl MKDIR curl
       IF ERRORLEVEL 1 POPD && EXIT /b !ERRORLEVEL!
 
-      EXPAND curl.cab -F:* curl
+      expand curl.cab -F:* curl
       IF ERRORLEVEL 1 POPD && EXIT /b !ERRORLEVEL!
       POPD
     )
@@ -937,13 +949,13 @@ REM
 
     REM Try to download the file
     SET _arg="%url%" -o "%dl%" ^
-      --fail --insecure --location --silent %curl_opts%
+      --fail --location --silent %curl_opts%
     CALL :escPercent _arg
     CALL :doCurl %_arg%
     IF NOT ERRORLEVEL 1 (
       MOVE /Y "%dl%" "%localFile%" >/NUL
       IF NOT ERRORLEVEL 1 (
-        ECHO Download %url% to %localFile%
+        ECHO Download "%url%" to "%localFile%"
         ENDLOCAL && SET "_ret=%url%" && EXIT /b 0
       )
     )
@@ -1185,13 +1197,16 @@ REM
 
     IF "%GIT_INST_URL%"=="" ECHO ERROR: GIT.EXE not found && EXIT /b 1
 
-    SET _arg="%GIT_INST_URL%"
+    SET "_arg=%GIT_INST_URL%"
     CALL :escPercent _arg
     ( REM ENSURE ONE GIT INSTALLATION RUN AT ONCE GIVEN TIME
       REM NOTE: GIT_INST_URL also include install flags DONOT quote it.
-      ECHO Installing GIT from %GIT_INST_URL%...
+      ECHO Installing GIT from "%GIT_INST_URL%"...
       CALL :runUrl %_arg% ^
       || ECHO ERROR: GIT Installation FAILED && GOTO :EOF
+
+      REM Make sure all running process are finished
+      CALL :joinThread
 
       ECHO THERE MIGHT BE A LOT OF ERRORS UNTIL MACHINE REBOOT COMPLETED
       SHUTDOWN /r /t 2
@@ -1211,7 +1226,7 @@ REM
 
   REM Delete files specified in DEL_DOTGIT_FILES in .git folder
   FOR /R ".git" %%a IN (%DEL_DOTGIT_FILES%) DO (
-    DEL /F "%%~a" && ECHO DELETE %%~a
+    DEL /F "%%~a" && ECHO DELETE "%%~a"
   )
 
   REM Auto add "-i SSH_KEY" into GIT_SSH_COMMAND
@@ -1238,7 +1253,7 @@ REM
 
     REM If the cache folder do not exists, run a git clone first
     IF NOT EXIST "%desRepo%\objects" (
-      ECHO %TIME%  Initialize %desRepo% cache for %srcRepo%...
+      ECHO %TIME%  Initialize "%desRepo%" cache for "%srcRepo%"...
       SET cloneOpts=
       IF NOT "%branch%"=="" SET cloneOpts=-b "%branch%"
 
@@ -1291,25 +1306,25 @@ REM folder Is also return the actual git repos URL into srcRepo variable
     %GIT_CMD% remote remove "%desRemote%" 2>/NUL
     %GIT_CMD% remote add "%desRemote%" "%srcRepo%"
     IF ERRORLEVEL 1 (
-      ECHO %TIME%%indent%ERROR: Cannot set remote %desRemote% to %srcRepo%
+      ECHO %TIME%%indent%ERROR: Cannot set remote "%desRemote%" to "%srcRepo%"
       POPD && EXIT /b 1
     )
     FOR /F "delims=" %%a IN (.tmp.gitFetchCache) DO (
       IF /I NOT "%%~a"=="%srcRepo%" (
-        ECHO %TIME%%indent%WARN: Remote %desRemote% was %%a, now replaced with %srcRepo%
+        ECHO %TIME%%indent%WARN: Remote "%desRemote%" was "%%a", now replaced with "%srcRepo%"
       )
     )
   )
 
   IF "%branch%"=="" (
-    ECHO %TIME%%indent%Fetching %desRepo% from %srcRepo%...
+    ECHO %TIME%%indent%Fetching "%desRepo%" from "%srcRepo%"...
     SET fetchOpts=--prune "%desRemote%"
   ) ELSE (
-    ECHO %TIME%%indent%Fetching %desRepo% at %branch% from %srcRepo%...
+    ECHO %TIME%%indent%Fetching "%desRepo%" at "%branch%" from "%srcRepo%"...
     SET fetchOpts="%desRemote%" "%branch%"
   )
   %GIT_CMD% fetch %fetchOpts%
-  IF ERRORLEVEL 1 ECHO ERROR: fetch %desRemote% && POPD && EXIT /b 1
+  IF ERRORLEVEL 1 ECHO ERROR: fetch "%desRemote%" && POPD && EXIT /b 1
 
   REM Normalize %branch% to a commit SHA1
   IF NOT "%branch%"=="" FOR /F %%a IN (
@@ -1322,7 +1337,7 @@ REM folder Is also return the actual git repos URL into srcRepo variable
     SET fetchLFSOpts="%desRemote%" "%branch%"
     IF "%branch%"=="" SET fetchLFSOpts=--recent "%desRemote%"
     %GIT_CMD% lfs fetch !fetchLFSOpts!
-    IF ERRORLEVEL 1 ECHO %TIME%%indent%ERROR: fetch %desRemote% lfs && POPD && EXIT /b 1
+    IF ERRORLEVEL 1 ECHO %TIME%%indent%ERROR: fetch "%desRemote%" lfs && POPD && EXIT /b 1
   )
 
   REM Find and fetch all submodule
@@ -1333,7 +1348,7 @@ REM folder Is also return the actual git repos URL into srcRepo variable
       '%GIT_CMD% ls-tree -r --full-tree --name-only "%branch%"'
     ) DO IF "%%~a"==".gitmodules" (
       SET modFile=%%~a
-      ECHO %TIME%%indent%  Check !modFile! for submodules at %branch% (%desRemote%^)
+      ECHO %TIME%%indent%  Check "!modFile!" for submodules at "%branch% (%desRemote%)"
 
       REM Get list of submodule names
       %GIT_CMD% show "%branch%":"!modFile!" >.tmp.gitFetchCache.mod 2>/NUL
@@ -1347,7 +1362,7 @@ REM folder Is also return the actual git repos URL into srcRepo variable
         SET cfgName=!cfgName:~0,-3!
         SET modName=!cfgName:~10,-1!
 
-        ECHO %TIME%%indent%    Found Submodule !modName!
+        ECHO %TIME%%indent%    Found Submodule "!modName!"
 
         REM Obtain module URL (could be relative URL)
         SET modUrlOrg=
@@ -1392,9 +1407,9 @@ REM folder Is also return the actual git repos URL into srcRepo variable
     SET "indent=%indent%    "
     FOR %%a IN (!myArgs!) DO (
       IF %%a=="/" (
-        ECHO %TIME%!indent!START fetching submodule !modName!
+        ECHO %TIME%!indent!START fetching submodule "!modName!"
         CALL :_gitFetchCache_Inner "!modBranch!" "!modUrl!" .
-        ECHO %TIME%!indent!END fetching submodule !modName!
+        ECHO %TIME%!indent!END fetching submodule "!modName!"
         IF ERRORLEVEL 1 POPD && EXIT /b %ERRORLEVEL%
       )
       SET modName=!modBranch!
@@ -1444,7 +1459,7 @@ REM
 
   :_configWinProxy_update
     ECHO Current Proxy setting %oldEnb% - %oldSrv%
-    ECHO   now set to          %enb% - %http_proxy%
+    ECHO   now set to          %enb% - "%http_proxy%"
     REG ADD "%basePath%" /v ProxyEnable /t REG_DWORD /d "%enb%"        /f >/NUL
     REG ADD "%basePath%" /v ProxyServer /t REG_SZ    /d "%http_proxy%" /f >/NUL
     1>&2 ECHO NEED TO RESTART THE SHELL for Proxy to work
@@ -1481,19 +1496,21 @@ REM
   SETLOCAL
   DEL /F .ret 2>/NUL
   SET test=%~1
+  SET "_ech_test=%~1"
 
   REM Skip if not a share drive path, return original path
-  IF NOT "%test:~0,2%" == "\\" (
-    (ECHO %test%)> .ret
+  IF "%test:~0,2%" == "\\" GOTO :_getLocalPath_share_path
+    CALL :escapeVar _ech_test
+    (ECHO %_ech_test%)> .ret
     ENDLOCAL && SET "_ret=%test%" && EXIT /b 0
-  )
+  :_getLocalPath_share_path
 
   REM Search of the share drive path already mapped. If found, return the
   REM drive letter
   FOR /F "tokens=1,2,*" %%a IN (
     'NET USE ^| findstr /R /B /C:"OK  *.:" ^| findstr /C:"%test% "'
   ) DO (
-    ECHO %%a %%b %%c
+    ECHO %%a %%b "%%c"
     IF "%%a"=="OK" (
       (ECHO %%b)> .ret
       ENDLOCAL && SET "_ret=%%b" && EXIT /b 0
@@ -1505,9 +1522,9 @@ REM
   SET netOpts=NET USE * "%test%" /PERSISTENT:NO
   IF NOT "%~2" == "" SET netOpts=%netOpts% "/USER:%~2"
   IF NOT "%~3" == "" SET netOpts=%netOpts% %3
-  ECHO Mapping %test% to a drive letter
+  ECHO Mapping "%test%" to a drive letter
   FOR /F "tokens=1,2,*" %%a IN ('%netOpts%') DO (
-    ECHO %%a %%b %%c
+    ECHO %%a %%b "%%c"
     IF "%%a" == "Drive" (
       (ECHO %%b)> .ret
       ENDLOCAL && SET "_ret=%%b" && EXIT /b 0
@@ -1515,7 +1532,8 @@ REM
   )
 
   REM Seem like share drive cannot be mapped, return original path
-  (ECHO %test%)> .ret
+  CALL :escapeVar _ech_test
+  (ECHO %_ech_test%)> .ret
 ENDLOCAL && SET "_ret=%test%" && EXIT /b 0
 
 
@@ -1553,7 +1571,7 @@ REM
       START "" cmd /C 9>.%lock% %* 1^>^&2 ^>.%lock%.out
       IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
-      (ECHO CALL %_ciutils% _waitRunThread %lock%)>> .cleanup.cmd
+      (ECHO CALL "%_ciutils%" _waitRunThread %lock%)>> .cleanup.cmd
       IF ERRORLEVEL 1 EXIT /b %ERRORLEVEL%
 
     ) 9>.%lock%.start || GOTO :_thread_loop
@@ -1607,9 +1625,9 @@ REM
   FOR %%n IN (%*) DO (
     IF EXIST .%%n.out (
       FOR /F "usebackq delims=" %%c IN (".%%n.cmd") DO (
-        ECHO ** Output of [THREAD %%n] %%c:
+        ECHO ** Output of [THREAD %%n] "%%c":
       )
-      FOR /F "delims=" %%c IN (.%%n.out) DO ECHO.  ^| %%c
+      FOR /F "delims=" %%c IN (.%%n.out) DO ECHO " | %%c"
       ECHO.
       DEL /F .%%n.out
     )
@@ -1684,6 +1702,7 @@ REM
 REM @note This command use powershell
 REM
 :traceCmd
+  FOR %%a IN ("%_traceFile%") DO SET _traceFile=%%~sa
 CALL :_getPID
 ( REM Insert ECHO on every line with line# and src code
   ECHO. $lineNo=0
