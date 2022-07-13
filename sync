@@ -95,8 +95,8 @@ while [[ ! -z "$1" ]]; do
   if [[ $1 =~ ^-e$|^--email$         ]]; then emailFile=`realpath "$2"`;   shift; shift; continue; fi
   if [[ $1 =~ ^-m$|^--mergeSync$     ]]; then rebaseSync="no";             shift;        continue; fi
   if [[ $1 =~ ^-n$|^--no-svnCommit$  ]]; then dcommitOpt+=("-n");          shift;        continue; fi
-  if [[ $1 =~ ^-np$|^--no-git-push$  ]]; then noGitPush="yes"              shift;        continue; fi
-  if [[ $1 =~ ^-nf$|^--no-git-fetch$ ]]; then noGitFetch="yes"             shift;        continue; fi
+  if [[ $1 =~ ^-np$|^--no-git-push$  ]]; then noGitPush="yes";             shift;        continue; fi
+  if [[ $1 =~ ^-nf$|^--no-git-fetch$ ]]; then noGitFetch="yes";            shift;        continue; fi
   if [[ $1 =~ ^-p$|^--prompt$        ]]; then prompt="yes";                shift;        continue; fi
   if [[ $1 =~ ^-r$|^--rebaseSync$    ]]; then rebaseSync="yes";            shift;        continue; fi
   if [[ $1 =~ ^-s$|^--strategy$      ]]; then mergeOpt="$2";               shift; shift; continue; fi
@@ -297,11 +297,9 @@ cleanUp()
 
 exitErrInfo()
 {
-  if [[ $LOG_LEVEL -lt $LOG_LEVEL_DEBUG ]]; then
-    INFO      "## GIT, AND LFS CONFIGURATION ##"
-    INFO_EVAL "env" "which git-lfs" "git lfs env"
-    INFO_EVAL "which git" "git version" "git config --show-origin --list"
-  fi
+  DBG      "## GIT, AND LFS CONFIGURATION ##"
+  DBG_EVAL "env" "which git-lfs" "git lfs env"
+  DBG_EVAL "which git" "git version" "git config --show-origin --list"
 }
 
 init_fetchNewSvnFolder()
