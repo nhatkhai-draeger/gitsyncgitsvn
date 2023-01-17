@@ -133,6 +133,7 @@ syncASvnFolder()
 
   mkdir -p "$repoLogDir"
   echo > "$repoLogDir/$logFile"
+  exitIfErr 1 "Cannot create log file $logFile"
   (
     EXIT_CMDS=()
     if [[ "$flock" == "yes" ]]; then flock -n 9; fi
