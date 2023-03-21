@@ -146,12 +146,14 @@ work_on()
 
     if [[ -d "${git_dirname}" ]]; then
       ERROR "${git_dirname} already exist"
+      echo "${git_dirname} already exist" >> "$errPath"
       return
     fi
 
     if [[ "$flock" != "yes" && -f "$lock" ]]; then
       ERROR "Some thread may still running.
       Please wait or remove ${lock}"
+      echo "Some thread may still running." >> "$errPath"
       return
     fi
   fi

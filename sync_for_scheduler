@@ -73,7 +73,7 @@ main()
   if [[ -z $repos ]]; then
     # Sync all repository folders in $gits
     INFO "Sync all repositories in $gits"
-    ls "$gits" -1 > "$respoNames" || exit $?
+    ls "$gits" -1 > "$respoNames" || exitClean $?
     while IFS= read -r f; do 
       if [ -d "$gits/$f" ]; then repos+=("$f"); fi
     done < "$respoNames"
@@ -127,6 +127,7 @@ syncASvnFolder()
     if [[ "$flock" != "yes" && -f "$lock" ]]; then 
       ERROR "Some thread may still running. 
       Please wait or remove ${lock}"
+      echo "Some thread may still running." >> "$errPath"
       return
     fi
   fi
