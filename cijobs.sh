@@ -73,8 +73,6 @@ if [[ $# -ne 0 ]]; then
       rm -f "$TMP/.cache/.envVars"
       export DEF_ENV_URL="https://att.corp.draeger.global/Distribution/Config/env/developer.txt"
     fi
-    BASH_CMD=`which bash`
-    export BASH_CMD=`cygpath -w "$BASH_CMD"`
     $CIUTILS runBash $0 . "$@"
   )
   fi
