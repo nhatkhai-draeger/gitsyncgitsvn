@@ -13,6 +13,9 @@ echo "$HOME/.gitconfig" >> clean_list
 git config --global user.email "test@email.com"
 git config --global user.name "tester"
 
+# below prevent failure from git submodule add from file://...
+git config --global protocol.file.allow always
+
 INFO "## Create authors file"
 echo clean_list     >> clean_list
 echo authors        >> clean_list
