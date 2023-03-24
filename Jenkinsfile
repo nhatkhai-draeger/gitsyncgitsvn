@@ -43,15 +43,17 @@ pipeline
 
       readProperties(file:".ret").each{k,v-> env."$k"=v}
 
-      checkout scm: scm
+      // Try to use bash installed with Git Windows if available
+      env.PATH = "$GIT_INST_DEF;$GIT_INST_DEF\\..\\usr\\bin;$PATH"
 
-      env.PATH = "$env.GIT_INST_DEF;$env.PATH"
+      checkout scm: scm
+      bat "$CIUTILS runBash bash --version"
     } } /*steps*/ } /*stage*/
 
     stage("main") { parallel
     {
-      stage("syntax") { steps { bat "bash ./cijobs.sh . syntax" } }
-      stage("test"  ) { steps { bat "bash ./cijobs.sh . test"   } }
+      stage("syntax") { steps { bat "$CIUTILS runBash cijobs.sh syntax" } }
+      stage("test"  ) { steps { bat "$CIUTILS runBash cijobs.sh test"   } }
     } /*parallel*/ } /*stage*/
   }
 
