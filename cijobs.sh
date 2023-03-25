@@ -56,7 +56,7 @@ test()
 
 default_value()
 {
-  [[ -z $CIUTILS ]] && CIUTILS=../ciUtils.cmd
+  [[ -z $CIUTILS ]] && CIUTILS=./ciUtils.cmd
   CIUTILS=`realpath "$CIUTILS"`
 }
 
