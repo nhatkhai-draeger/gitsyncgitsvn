@@ -17,8 +17,8 @@ pipeline
 
   environment
   {
-    cacheL1     = "$BASE\\caches"
-    DEF_ENV_URL= "${Def().envUrl}"
+    cacheL1     = "${Def().base}\\caches"
+    DEF_ENV_URL = "${Def().envUrl}"
 
     CIUTILS     = "ciUtils.cmd"
 
